@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include "controller.h"
 
-#define MAX_CMD_LEN 1
+#define MAX_CMD_LEN 16
 
 static void controller_menu(void) {
     printf("What do you want to do?\n");
@@ -17,7 +17,7 @@ static void controller_menu(void) {
 }
 
 static void list(void) {
-    printf("No devices yet");
+    printf("No devices yet\n");
 }
 
 void controller_run() {
@@ -26,38 +26,38 @@ void controller_run() {
     controller_menu();
 
     while(true) {
-        if(fgets(buffer, sizeof(buffer), stdin) == NULL) {
+        /*if(fgets(buffer, sizeof(buffer), stdin) == NULL) {
             printf("Exit...");
             break;
-        }
-
+        }*/
+       buffer[strncspn(buffer, "\n")] = '\0';
 
         if(strcmp(buffer, "1") == 0) {
             list();
         }
-        else if(strcmp(buffer, "2"))
+        else if(strcmp(buffer, "2") == 0)
         {
-            printf("This feature will be avaliable soon!");
+            printf("This feature will be avaliable soon!\n");
         }
-        else if(strcmp(buffer, "3"))
+        else if(strcmp(buffer, "3") == 0)
         {
-            printf("This feature will be avaliable soon!");
+            printf("This feature will be avaliable soon!\n");
         }
-        else if(strcmp(buffer, "4"))
+        else if(strcmp(buffer, "4") == 0)
         {
-            printf("This feature will be avaliable soon!");
+            printf("This feature will be avaliable soon!\n");
         }
-        else if(strcmp(buffer, "5"))
+        else if(strcmp(buffer, "5") == 0)
         {
-            printf("This feature will be avaliable soon!");
+            printf("This feature will be avaliable soon!\n");
         }
-        else if(strcmp(buffer, "6"))
+        else if(strcmp(buffer, "6") == 0)
         {
-            printf("This feature will be avaliable soon!");
+            printf("This feature will be avaliable soon!\n");
         }
-        else if(strcmp(buffer, "7"))
+        else if(strcmp(buffer, "7") == 0)
         {
-            printf("Exit...");
+            printf("Exit...\n");
             break;
         }
     }
