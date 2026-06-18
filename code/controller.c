@@ -31,27 +31,27 @@ void controller_run() {
         }
         else if(strcmp(buffer, "2"))
         {
-            print("This feature will be avaliable soon!");
+            printf("This feature will be avaliable soon!");
         }
         else if(strcmp(buffer, "3"))
         {
-            print("This feature will be avaliable soon!");
+            printf("This feature will be avaliable soon!");
         }
         else if(strcmp(buffer, "4"))
         {
-            print("This feature will be avaliable soon!");
+            printf("This feature will be avaliable soon!");
         }
         else if(strcmp(buffer, "5"))
         {
-            print("This feature will be avaliable soon!");
+            printf("This feature will be avaliable soon!");
         }
         else if(strcmp(buffer, "6"))
         {
-            print("This feature will be avaliable soon!");
+            printf("This feature will be avaliable soon!");
         }
         else if(strcmp(buffer, "7"))
         {
-            print("Exit...");
+            printf("Exit...");
             break;
         }
 
