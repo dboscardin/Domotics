@@ -26,6 +26,12 @@ void controller_run() {
     controller_menu();
 
     while(true) {
+        if(fgets(buffer, sizeof(buffer), stdin) == NULL) {
+            printf("Exit...");
+            break;
+        }
+
+
         if(strcmp(buffer, "1") == 0) {
             list();
         }
@@ -51,11 +57,6 @@ void controller_run() {
         }
         else if(strcmp(buffer, "7"))
         {
-            printf("Exit...");
-            break;
-        }
-
-        if(fgets(buffer, sizeof(buffer), stdin) == NULL) {
             printf("Exit...");
             break;
         }
