@@ -1,21 +1,23 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -std=c11
 TARGET = domotics
-SRCS = code/main.c
+SRCS = code/main.c code/controller.c
 OBJS = $(SRCS:.c=.o)
+
+.PHONY: all build clean run
 
 all: build
 
-# quando runniamo make, prima controlla se target è eseguibile, sennò lo builda
+# quando eseguiamo make, prima controlla se target è eseguibile, sennò lo builda
 build: $(TARGET)
 
-# $(TARGET) specifica come collegare object files nell'exe finale
+# Collega object files nell'exe finale
 # $@ --> target corrente (domotics)
 # $^ --> tutte le dependencies
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
-# %.o: %.c ogni file .c viene compilato nel corrispondente .o
+# Compila ogni file .c nel corrispondente .o
 # $< --> prima dependency (main.c)
 # $@ --> file .o da riprodurre
 %.o: %.c
