@@ -30,7 +30,7 @@ void controller_run() {
             printf("Exit...");
             break;
         }*/
-       buffer[strncspn(buffer, "\n")] = '\0';
+       buffer[strcspn(buffer, "\n")] = '\0';
 
         if(strcmp(buffer, "1") == 0) {
             list();
