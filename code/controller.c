@@ -26,39 +26,43 @@ void controller_run() {
     controller_menu();
 
     while(true) {
-        /*if(fgets(buffer, sizeof(buffer), stdin) == NULL) {
+        printf("> ");
+
+        if(fgets(buffer, sizeof(buffer), stdin) == NULL) {
             printf("Exit...");
             break;
-        }*/
-       buffer[strcspn(buffer, "\n")] = '\0';
+        }
+
+        //toglie /n finale
+        buffer[strcspn(buffer, "\n")] = '\0';
 
         if(strcmp(buffer, "1") == 0) {
             list();
         }
-        else if(strcmp(buffer, "2") == 0)
-        {
+        else if(strcmp(buffer, "2") == 0) {
             printf("This feature will be avaliable soon!\n");
         }
-        else if(strcmp(buffer, "3") == 0)
-        {
+        else if(strcmp(buffer, "3") == 0) {
             printf("This feature will be avaliable soon!\n");
         }
-        else if(strcmp(buffer, "4") == 0)
-        {
+        else if(strcmp(buffer, "4") == 0) {
             printf("This feature will be avaliable soon!\n");
         }
-        else if(strcmp(buffer, "5") == 0)
-        {
+        else if(strcmp(buffer, "5") == 0) {
             printf("This feature will be avaliable soon!\n");
         }
-        else if(strcmp(buffer, "6") == 0)
-        {
+        else if(strcmp(buffer, "6") == 0) {
             printf("This feature will be avaliable soon!\n");
         }
-        else if(strcmp(buffer, "7") == 0)
-        {
+        else if(strcmp(buffer, "7") == 0) {
             printf("Exit...\n");
             break;
+        } else if (buffer[0] == '\0') {
+            // riga vuota, ignora
+            continue;
+        } else {
+            printf("Invalid choice, please try again.\n");
         }
+
     }
 }
