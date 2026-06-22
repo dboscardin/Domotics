@@ -19,6 +19,8 @@ static int device_count = 0;
 //static int curr_id = 0;
 
 static void add_device(DeviceType type);
+static void add_device_menu();
+
 //static void add_bulb(void);
 //static void add_window(void);
 //static void add_fridge(void);
@@ -47,7 +49,7 @@ static void add_device(DeviceType type) {
 
     pid_t pid = fork();
     if (pid < 0) {
-        perror("Error during fork.\n");
+        perror("Error during fork.");
         return;
     }
     
@@ -84,7 +86,6 @@ static void add_device(DeviceType type) {
         break;
 
     case DEVICE_FRIDGE:
-        devices[device_count].type = DEVICE_FRIDGE;
         printf("Fridge ");
         break;
     }        
@@ -93,89 +94,10 @@ static void add_device(DeviceType type) {
     device_count++;
 }
 
-/*static void add_bulb() {
-    if(device_count >= MAX_DEVICES) {
-        printf("You reached the limit of devices.\n");
-        return;
-    }
 
-    pid_t pid = fork();
-    if (pid < 0) {
-        perror("Error during fork.\n");
-        return;
-    }
-    else if(pid==0)
-    {
-        create_bulb(device_count);
-        _exit(0);
-        
-    } else {
-        devices[device_count].id = device_count;
-        devices[device_count].pid = pid;
-        devices[device_count].type = DEVICE_BULB;
-    }
-
-    printf("Bulb created successfully!\nid=%d, pid=%d\n", device_count, pid);
-
-    device_count++;
-}
-
-static void add_window() {
-    if(device_count >= MAX_DEVICES) {
-        printf("You reached the limit of devices.\n");
-        return;
-    }
-
-     pid_t pid = fork();
-    if (pid < 0) {
-        perror("Error during fork.\n");
-        return;
-    }
-    else if(pid==0)
-    {
-        create_window(device_count);
-        _exit(0);
-        
-    } else {
-        devices[device_count].id = device_count;
-        devices[device_count].pid = pid;
-        devices[device_count].type = DEVICE_WINDOW;
-    }
-
-    printf("Window created successfully!\nid=%d, pid=%d\n", device_count, pid);
-
-    device_count++;
-}
-
-static void add_fridge() {
-    if(device_count >= MAX_DEVICES) {
-        printf("You reached the limit of devices.\n");
-        return;
-    }
-
-     pid_t pid = fork();
-    if (pid < 0) {
-        perror("Error during fork.\n");
-        return;
-    }
-    else if(pid==0)
-    {
-        create_fridge(device_count);
-        _exit(0);
-        
-    } else {
-        devices[device_count].id = device_count;
-        devices[device_count].pid = pid;
-        devices[device_count].type = DEVICE_FRIDGE;
-    }
-
-    printf("Fridge created successfully!\nid=%d, pid=%d\n", device_count, pid);
-
-    device_count++;
-}*/
 
 static int read_line(char *buffer, size_t size) {
-    if(fgets(buffer, sizeof(buffer), stdin) == NULL) {
+    if(fgets(buffer, size, stdin) == NULL) {
         return 0;
     }
 
@@ -184,7 +106,7 @@ static int read_line(char *buffer, size_t size) {
     return 1;
 }
 
-static void add_device(void) {
+static void add_device_menu(void) {
     char buffer[MAX_CMD_LEN];
 
     printf("What do you want to create?\n");
@@ -239,7 +161,7 @@ void controller_run() {
                 devices_list();
                 break;
             case '2':
-                add_device();
+                add_device_menu();
                 break;
             case '3':
             case '4':
