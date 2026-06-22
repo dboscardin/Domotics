@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -16,7 +17,7 @@
 
 static DeviceInfo devices[MAX_DEVICES];
 static int device_count = 0;
-//static int curr_id = 0;
+static int curr_id = 0;     //devo averne due per evitare conflitti causa eliminazione
 
 static void add_device(DeviceType type);
 static void add_device_menu();
@@ -48,19 +49,20 @@ static void controller_menu(void) {
 
 static void devices_list(void) {
     if(device_count == 0)
-        printf("No devices yet\n");
+        printf("No devices yet\n\n");
     else {
         for (int i = 0; i < device_count; i++)
         {
             printf("Id=%d, Pid=%d, Type=%s,\n", devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
         }
+        printf("\n");
         
     }
 }
 
 static void add_device(DeviceType type) {
     if(device_count >= MAX_DEVICES) {
-        printf("You reached the limit of devices.\n");
+        printf("You reached the limit of devices.\n\n");
         return;
     }
 
@@ -74,13 +76,13 @@ static void add_device(DeviceType type) {
         switch (type)
         {
         case DEVICE_BULB:
-            create_bulb(device_count);
+            create_bulb(curr_id);
             break;
         case DEVICE_WINDOW:
-            create_window(device_count);
+            create_window(curr_id);
             break;
         case DEVICE_FRIDGE:
-            create_fridge(device_count);
+            create_fridge(curr_id);
             break;
         default:
             _exit(1);
@@ -88,30 +90,30 @@ static void add_device(DeviceType type) {
         _exit(0);
     }
 
-    devices[device_count].id = device_count;
-    devices[device_count].pid = pid;
-    devices[device_count].type = type;
+    devices[curr_id].id = curr_id;
+    devices[curr_id].pid = pid;
+    devices[curr_id].type = type;
 
     switch (type)
     {
-    case DEVICE_BULB:
-        printf("Bulb ");
-        break;
+        case DEVICE_BULB:
+            printf("Bulb ");
+            break;
 
-    case DEVICE_WINDOW:
-        printf("Window ");
-        break;
+        case DEVICE_WINDOW:
+            printf("Window ");
+            break;
 
-    case DEVICE_FRIDGE:
-        printf("Fridge ");
-        break;
+        case DEVICE_FRIDGE:
+            printf("Fridge ");
+            break;
     }        
-    printf("created successfully!\nid=%d, pid=%d\n", device_count, pid);
+    printf("created successfully!\nid=%d, pid=%d\n\n", curr_id, pid);
 
     device_count++;
+    curr_id++;
+    controller_menu();
 }
-
-
 
 static int read_line(char *buffer, size_t size) {
     if(fgets(buffer, size, stdin) == NULL) {
@@ -159,16 +161,35 @@ static void add_device_menu(void) {
 
 }
 
+static void remove_device(int id) {
+    if(devices[id].id == NULL) {
+        printf("No device with this Id.");
+        return;
+    }
+
+    kill(devices[id].pid, SIGTERM);
+    waitpid(devices[id].pid, NULL, 0);
+
+    for (int i = 0; i < device_count; i++)
+    {
+        devices[i] = devices[i + 1];
+    }
+
+    device_count--;
+
+    printf("Device id=%d removed successfully.\n\n", id);
+}
+
 void controller_run() {
     char buffer[MAX_CMD_LEN];    
 
+    controller_menu();
     while(true) {
 
-        controller_menu();
         printf("domotics> ");
 
         if (!read_line(buffer, sizeof(buffer))) {
-            printf("Exit...\n");
+            printf("Exit...\n\n");
             break;
         }
 
@@ -184,15 +205,15 @@ void controller_run() {
             case '4':
             case '5':
             case '6':   
-                printf("This feature will be avaliable soon!\n");
+                printf("This feature will be avaliable soon!\n\n");
                 break;
             case '7':
-                printf("Exit...\n");
+                printf("Exit...\n\n");
                 return;
             case '\0':
                 break;     
             default:
-                printf("Invalid choice.\n");
+                printf("Invalid choice.\n\n");
             break;
         }
     }
