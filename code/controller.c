@@ -18,9 +18,10 @@ static DeviceInfo devices[MAX_DEVICES];
 static int device_count = 0;
 //static int curr_id = 0;
 
-static void add_bulb(void);
-static void add_window(void);
-static void add_fridge(void);
+static void add_device(void);
+//static void add_bulb(void);
+//static void add_window(void);
+//static void add_fridge(void);
 static void list(void);
 
 static void controller_menu(void) {
@@ -38,7 +39,61 @@ static void list(void) {
     printf("No devices yet\n");
 }
 
-static void add_bulb() {
+static void add_device(DeviceType type) {
+    if(device_count >= MAX_DEVICES) {
+        printf("You reached the limit of devices.\n");
+        return;
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("Error during fork.\n");
+        return;
+    }
+    
+    if(pid==0) {
+        switch (type)
+        {
+        case DEVICE_BULB:
+            create_bulb(device_count);
+            break;
+        case DEVICE_WINDOW:
+            create_window(device_count);
+            break;
+        case DEVICE_FRIDGE:
+            create_fridge(device_count);
+            break;
+        default:
+            _exit(1);
+        }
+        _exit(0);
+    }
+
+    devices[device_count].id = device_count;
+    devices[device_count].pid = pid;
+    devices[device_count].type = type;
+
+    switch (type)
+    {
+    case DEVICE_BULB:
+        printf("Bulb ");
+        break;
+
+    case DEVICE_WINDOW:
+        printf("Window ");
+        break;
+
+    case DEVICE_FRIDGE:
+        devices[device_count].type = DEVICE_FRIDGE;
+        printf("Fridge ");
+        break;
+    }        
+    printf("created successfully!\nid=%d, pid=%d\n", device_count, pid);
+
+    device_count++;
+}
+
+/*static void add_bulb() {
     if(device_count >= MAX_DEVICES) {
         printf("You reached the limit of devices.\n");
         return;
@@ -117,86 +172,90 @@ static void add_fridge() {
     printf("Fridge created successfully!\nid=%d, pid=%d\n", device_count, pid);
 
     device_count++;
+}*/
+
+static int read_line(char *buffer, size_t size) {
+    if(fgets(buffer, sizeof(buffer), stdin) == NULL) {
+        return 0;
+    }
+
+    //toglie /n finale
+    buffer[strcspn(buffer, "\n")] = '\0';
+    return 1;
+}
+
+static void add_device(void) {
+    char buffer[MAX_CMD_LEN];
+
+    printf("What do you want to create?\n");
+    printf("[1] A bulb\n");
+    printf("[2] A window\n");
+    printf("[3] A fridge\n");
+    printf("[4] Back\n");
+    printf("> ");
+
+    if(!read_line(buffer, sizeof(buffer))) {
+        printf("Exit...");
+        return;
+    }
+
+    switch (buffer[0])
+    {
+    case '1':
+        add_device(DEVICE_BULB);
+        break;
+    case '2':
+        add_device(DEVICE_WINDOW);
+        break;
+    case '3':
+        add_device(DEVICE_FRIDGE);
+        break;
+    case '4':
+    case '\0':
+        return;
+    default:
+        printf("Invalid choice.\n");
+        return;
+    }
+
 }
 
 void controller_run() {
-    char buffer[MAX_CMD_LEN];
-
-    printf("Controller avviato, PID=%d\n", getpid());
-    controller_menu();
+    char buffer[MAX_CMD_LEN];    
 
     while(true) {
+
+        controller_menu();
         printf("domotics> ");
 
-        if(fgets(buffer, sizeof(buffer), stdin) == NULL) {
-            printf("Exit...");
-            break;
-        }
-
-        //toglie /n finale
-        buffer[strcspn(buffer, "\n")] = '\0';
-
-        if(strcmp(buffer, "1") == 0) {
-            list();
-        }
-        else if(strcmp(buffer, "2") == 0) {
-            printf("What do you want to create?\n");
-            printf("[1] A bulb\n");
-            printf("[2] A window\n");
-            printf("[3] A fridge\n");
-            printf("[4] Quit\n");
-            printf("> ");
-
-            if(fgets(buffer, sizeof(buffer), stdin) == NULL) {
-                printf("Exit...");
-                break;
-            }
-
-            buffer[strcspn(buffer, "\n")] = '\0';
-
-            if(strcmp(buffer, "1") == 0) {
-                add_bulb();
-            }
-            else if(strcmp(buffer, "2") == 0) {
-                add_window();
-            }
-            else if(strcmp(buffer, "3") == 0) {
-                add_fridge();
-            }
-            else if(strcmp(buffer, "4") == 0) {
-                printf("Exit...\n");
-                break;
-            } else if (buffer[0] == '\0') {
-                // riga vuota, ignora
-                continue;
-            } else {
-                printf("Invalid choice, please try again.\n");
-                continue;
-            }
-
-            
-        }
-        else if(strcmp(buffer, "3") == 0) {
-            printf("This feature will be avaliable soon!\n");
-        }
-        else if(strcmp(buffer, "4") == 0) {
-            printf("This feature will be avaliable soon!\n");
-        }
-        else if(strcmp(buffer, "5") == 0) {
-            printf("This feature will be avaliable soon!\n");
-        }
-        else if(strcmp(buffer, "6") == 0) {
-            printf("This feature will be avaliable soon!\n");
-        }
-        else if(strcmp(buffer, "7") == 0) {
+        if (!read_line(buffer, sizeof(buffer))) {
             printf("Exit...\n");
             break;
-        } else if (buffer[0] == '\0') {
-            // riga vuota, ignora
-            continue;
-        } else {
-            printf("Invalid choice, please try again.\n");
         }
 
+        switch (buffer[0])
+        {
+            case '1':
+                devices_list();
+                break;
+            case '2':
+                add_device();
+                break;
+            case '3':
+            case '4':
+            case '5':
+            case '6':   
+                printf("This feature will be avaliable soon!\n");
+                break;
+            case '7':
+                printf("Exit...\n");
+                return;
+            case '\0':
+                break;     
+            default:
+                printf("Invalid choice.\n");
+            break;
+        }
     }
+
 }
