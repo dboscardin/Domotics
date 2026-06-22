@@ -38,7 +38,15 @@ static void controller_menu(void) {
 }
 
 static void devices_list(void) {
-    printf("No devices yet\n");
+    if(device_count == 0)
+        printf("No devices yet\n");
+    else {
+        for (int i = 0; i < device_count; i++)
+        {
+            printf("Id=%d, Pid=%d, Type=%s,\n", devices[i].id, devices[i].pid, devices[i].type);
+        }
+        
+    }
 }
 
 static void add_device(DeviceType type) {
