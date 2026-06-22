@@ -6,6 +6,6 @@ void create_bulb(int id) {
     Bulb bulb = {
         .id = id,
         .power = false,
-        .timer = 0
+        .time = 0
     };
 }
