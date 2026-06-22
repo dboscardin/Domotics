@@ -5,7 +5,7 @@
 
 typedef struct {
     int id;
-    bool power;
+    bool is_open;
     int time;
     int delay;
     int perc;
@@ -13,6 +13,6 @@ typedef struct {
     int thermostat;
 } Fridge;
 
-void create_Fridge(int id);
+void create_fridge(int id);
 
 #endif

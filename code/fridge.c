@@ -1,11 +1,15 @@
 #include <stdio.h>
 #include <unistd.h>
-#include "bulb.h"
+#include "fridge.h"
 
-void create_bulb(int id) {
-    Bulb bulb = {
+void create_fridge(int id) {
+    Fridge fridge = {
         .id = id,
-        .power = false,
-        .time = 0
+        .is_open = false,
+        .time = 0,
+        .delay = 60, //60s
+        .perc = 100,
+        .temp = 6,
+        .thermostat = 6 
     };
 }
