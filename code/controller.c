@@ -52,7 +52,7 @@ static void devices_list(void) {
     else {
         for (int i = 0; i < device_count; i++)
         {
-            printf("Id=%d, Pid=%d, Type=%n,\n", devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+            printf("Id=%d, Pid=%d, Type=%s,\n", devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
         }
         
     }
