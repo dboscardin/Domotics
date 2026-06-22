@@ -18,7 +18,7 @@ static DeviceInfo devices[MAX_DEVICES];
 static int device_count = 0;
 //static int curr_id = 0;
 
-static void add_device(void);
+static void add_device(DeviceType type);
 //static void add_bulb(void);
 //static void add_window(void);
 //static void add_fridge(void);
