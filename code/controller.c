@@ -22,7 +22,7 @@ static void add_device(DeviceType type);
 //static void add_bulb(void);
 //static void add_window(void);
 //static void add_fridge(void);
-static void list(void);
+static void devices_list(void);
 
 static void controller_menu(void) {
     printf("What do you want to do?\n");
@@ -35,7 +35,7 @@ static void controller_menu(void) {
     printf("[7] Quit\n");
 }
 
-static void list(void) {
+static void devices_list(void) {
     printf("No devices yet\n");
 }
 
