@@ -21,10 +21,19 @@ static int device_count = 0;
 static void add_device(DeviceType type);
 static void add_device_menu();
 
-//static void add_bulb(void);
-//static void add_window(void);
-//static void add_fridge(void);
 static void devices_list(void);
+
+static const char *device_type_to_string(DeviceType type) {
+    switch (type) {
+        case DEVICE_BULB:       return "Bulb";
+        case DEVICE_WINDOW:     return "Window";
+        case DEVICE_FRIDGE:     return "Fridge";
+        case DEVICE_CONTROLLER: return "Controller";
+        case DEVICE_HUB:        return "Hub";
+        case DEVICE_TIMER:      return "Timer";
+        default:                return "Unknown";
+    }
+}
 
 static void controller_menu(void) {
     printf("What do you want to do?\n");
@@ -43,7 +52,7 @@ static void devices_list(void) {
     else {
         for (int i = 0; i < device_count; i++)
         {
-            printf("Id=%d, Pid=%d, Type=%s,\n", devices[i].id, devices[i].pid, devices[i].type);
+            printf("Id=%d, Pid=%d, Type=%n,\n", devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
         }
         
     }
