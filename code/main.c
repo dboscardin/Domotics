@@ -6,7 +6,6 @@
 #include "controller.h"
 
 int main(void) {
-    //printf("Controller avviato\n");
     controller_run();
 
     return 0;

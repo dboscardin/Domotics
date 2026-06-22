@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -std=c11
 TARGET = domotics
-SRCS = code/main.c code/controller.c code/bulb.c
+SRCS = code/main.c code/controller.c code/bulb.c code/window.c code/fridge.c
 OBJS = $(SRCS:.c=.o)
 
 .PHONY: all build clean run
