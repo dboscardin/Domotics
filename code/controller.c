@@ -63,7 +63,7 @@ static void devices_list(void) {
     else {
         for (int i = 0; i < device_count; i++)
         {
-            printf("Id=%d, Pid=%d, Type=%s\n", devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+            printf("%d --> Id=%d, Pid=%d, Type=%s\n", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
         }
         printf("\n");
     }
@@ -99,9 +99,9 @@ static void add_device(DeviceType type) {
         _exit(0);
     }
 
-    devices[curr_id].id = curr_id;
-    devices[curr_id].pid = pid;
-    devices[curr_id].type = type;
+    devices[device_count].id = curr_id;
+    devices[device_count].pid = pid;
+    devices[device_count].type = type;
 
 
     /*switch (type)
@@ -176,15 +176,16 @@ static int find_device_by_id(int id) {
 
 static void remove_device(int id) {
 
-    if(find_device_by_id(id) == -1) {
+    int index = find_device_by_id(id);
+    if(index == -1) {
         printf("No device with this Id.");
         return;
     }
 
-    kill(devices[id].pid, SIGTERM);
-    waitpid(devices[id].pid, NULL, 0);
+    kill(devices[index].pid, SIGTERM);
+    waitpid(devices[index].pid, NULL, 0);
 
-    for (int i = 0; i < device_count; i++)
+    for (int i = index; i < device_count; i++)
     {
         devices[i] = devices[i + 1];
     }
@@ -196,6 +197,8 @@ static void remove_device(int id) {
 
 static void remove_device_menu() {
     char buffer[MAX_CMD_LEN];
+    char *endptr;
+    long id;
 
     printf("What device you want to remove?\n");
     printf("ID> ");
@@ -205,7 +208,14 @@ static void remove_device_menu() {
         return;
     }
 
-    remove_device((int)strtol(buffer, NULL, 10));
+    id = strtol(buffer, NULL, 10);
+
+    if(endptr == buffer || *endptr != '\0') {
+        printf("Invalid ID\n");
+        return;
+    }
+
+    remove_device((int));
 }
 
 void controller_run() {
