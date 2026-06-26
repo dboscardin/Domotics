@@ -174,23 +174,9 @@ static int find_device_by_id(int id) {
     return -1;
 }
 
-static void remove_device_menu() {
-    char buffer[MAX_CMD_LEN];
-
-    printf("What device you want to remove?\n");
-    printf("ID> ");
-
-    if(!read_line(buffer, sizeof(buffer))) {
-        printf("Exit...");
-        return;
-    }
-
-    remove_device((int)strtol(buffer, NULL, 10));
-}
-
 static void remove_device(int id) {
 
-    if(find_by_id(id) == -1) {
+    if(find_device_by_id(id) == -1) {
         printf("No device with this Id.");
         return;
     }
@@ -206,6 +192,20 @@ static void remove_device(int id) {
     device_count--;
 
     printf("Device id=%d removed successfully.\n\n", id);
+}
+
+static void remove_device_menu() {
+    char buffer[MAX_CMD_LEN];
+
+    printf("What device you want to remove?\n");
+    printf("ID> ");
+
+    if(!read_line(buffer, sizeof(buffer))) {
+        printf("Exit...");
+        return;
+    }
+
+    remove_device((int)strtol(buffer, NULL, 10));
 }
 
 void controller_run() {
