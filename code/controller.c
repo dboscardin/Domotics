@@ -215,7 +215,7 @@ static void remove_device_menu() {
         return;
     }
 
-    remove_device((int));
+    remove_device(int);
 }
 
 void controller_run() {
