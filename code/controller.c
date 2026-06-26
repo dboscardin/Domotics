@@ -86,12 +86,15 @@ static void add_device(DeviceType type) {
         {
         case DEVICE_BULB:
             create_bulb(curr_id);
+            //_exit(0)
             break;
         case DEVICE_WINDOW:
-            create_window(curr_id);
+            //create_window(curr_id);
+            _exit(0)
             break;
         case DEVICE_FRIDGE:
-            create_fridge(curr_id);
+            //create_fridge(curr_id);
+            _exit(0)
             break;
         default:
             _exit(1);
@@ -178,14 +181,14 @@ static void remove_device(int id) {
 
     int index = find_device_by_id(id);
     if(index == -1) {
-        printf("No device with this Id.");
+        printf("No device with this Id.\n\n");
         return;
     }
 
     kill(devices[index].pid, SIGTERM);
     waitpid(devices[index].pid, NULL, 0);
 
-    for (int i = index; i < device_count; i++)
+    for (int i = index; i < device_count -1; i++)
     {
         devices[i] = devices[i + 1];
     }
@@ -208,7 +211,7 @@ static void remove_device_menu() {
         return;
     }
 
-    id = strtol(buffer, NULL, 10);
+    id = strtol(buffer, &endptr, 10);
 
     if(endptr == buffer || *endptr != '\0') {
         printf("Invalid ID\n");
