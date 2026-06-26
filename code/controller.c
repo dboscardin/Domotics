@@ -16,13 +16,13 @@
 #define MAX_DEVICES 50
 
 static DeviceInfo devices[MAX_DEVICES];
-static int device_count = 0;
-static int curr_id = 0;     //devo averne due per evitare conflitti causa eliminazione
-
-static void add_device(DeviceType type);
-static void add_device_menu();
+static int device_count = 0;    //conta dispositivi attuali
+static int curr_id = 0;         //assegna un id che non decrementa all'eliminazione
+//devo averne due per evitare conflitti causa eliminazione
 
 static void devices_list(void);
+static void add_device(DeviceType type);
+static void add_device_menu();
 
 static const char *device_type_to_string(DeviceType type) {
     switch (type) {
@@ -34,6 +34,16 @@ static const char *device_type_to_string(DeviceType type) {
         case DEVICE_TIMER:      return "Timer";
         default:                return "Unknown";
     }
+}
+
+static int read_line(char *buffer, size_t size) {
+    if(fgets(buffer, size, stdin) == NULL) {
+        return 0;
+    }
+
+    //toglie /n finale
+    buffer[strcspn(buffer, "\n")] = '\0';
+    return 1;
 }
 
 static void controller_menu(void) {
@@ -53,10 +63,9 @@ static void devices_list(void) {
     else {
         for (int i = 0; i < device_count; i++)
         {
-            printf("Id=%d, Pid=%d, Type=%s,\n", devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+            printf("Id=%d, Pid=%d, Type=%s\n", devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
         }
         printf("\n");
-        
     }
 }
 
@@ -94,7 +103,8 @@ static void add_device(DeviceType type) {
     devices[curr_id].pid = pid;
     devices[curr_id].type = type;
 
-    switch (type)
+
+    /*switch (type)
     {
         case DEVICE_BULB:
             printf("Bulb ");
@@ -107,22 +117,17 @@ static void add_device(DeviceType type) {
         case DEVICE_FRIDGE:
             printf("Fridge ");
             break;
-    }        
-    printf("created successfully!\nid=%d, pid=%d\n\n", curr_id, pid);
+    }*/    
+    printf("%s", device_type_to_string(type));    
+    printf(" created successfully!\nid=%d, pid=%d\n\n", curr_id, pid);
 
     device_count++;
     curr_id++;
+
+    //printf("Do you want to create another device? [y/n\n]");
+    //printf("> ");
+    
     controller_menu();
-}
-
-static int read_line(char *buffer, size_t size) {
-    if(fgets(buffer, size, stdin) == NULL) {
-        return 0;
-    }
-
-    //toglie /n finale
-    buffer[strcspn(buffer, "\n")] = '\0';
-    return 1;
 }
 
 static void add_device_menu(void) {
@@ -161,8 +166,31 @@ static void add_device_menu(void) {
 
 }
 
+static int find_device_by_id(int id) {
+   for(int i = 0; i < device_count; i++) {
+        if(devices[i].id == id)
+            return i;
+    }
+    return -1;
+}
+
+static void remove_device_menu() {
+    char buffer[MAX_CMD_LEN];
+
+    printf("What device you want to remove?\n");
+    printf("ID> ");
+
+    if(!read_line(buffer, sizeof(buffer))) {
+        printf("Exit...");
+        return;
+    }
+
+    remove_device((int)strtol(buffer, NULL, 10));
+}
+
 static void remove_device(int id) {
-    if(devices[id].id == NULL) {
+
+    if(find_by_id(id) == -1) {
         printf("No device with this Id.");
         return;
     }
@@ -202,6 +230,8 @@ void controller_run() {
                 add_device_menu();
                 break;
             case '3':
+                remove_device_menu();
+                break;
             case '4':
             case '5':
             case '6':   
