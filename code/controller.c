@@ -89,12 +89,12 @@ static void add_device(DeviceType type) {
             //_exit(0)
             break;
         case DEVICE_WINDOW:
-            //create_window(curr_id);
-            _exit(0)
+            create_window(curr_id);
+            //_exit(0)
             break;
         case DEVICE_FRIDGE:
-            //create_fridge(curr_id);
-            _exit(0)
+            create_fridge(curr_id);
+            //_exit(0)
             break;
         default:
             _exit(1);
