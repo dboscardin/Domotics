@@ -48,13 +48,13 @@ static int read_line(char *buffer, size_t size) {
 
 static void controller_menu(void) {
     printf("What do you want to do?\n");
-    printf("[1] Show devices list\n");
+    /*printf("[1] Show devices list\n");
     printf("[2] Add a new device\n");
     printf("[3] Delete a device\n");
     printf("[4] Link two devices\n");
     printf("[5] Switch a device\n");
     printf("[6] Get more info\n");
-    printf("[7] Quit\n");
+    printf("[7] Quit\n");*/
 }
 
 static void devices_list(void) {
@@ -126,21 +126,17 @@ static void add_device(char* device) {
 
 }
 
-/*static void add_device_menu(char* device) {
-    if(strcmp(device, "bulb") == 0) {
-        add_device(DEVICE_BULB);
-    }
-    else if(strcmp(device, "window") == 0) {
-        add_device(DEVICE_WINDOW);
-    }
-    else if(strcmp(device, "fridge") == 0) {
-        add_device(DEVICE_FRIDGE);
-    }
-    else {
-        printf("Invalid command.\n\n");
-    }
+static int parse_id(const char *charId) {
+    char *endptr;
 
-}*/
+    long val = strtol(charId, &endptr, 10);
+
+    if(endptr == charId || *endptr != '\0' || val < 0) {
+        printf("Invalid ID.\n");
+        return -1;
+    }
+    return (int)val;
+}
 
 static int find_device_by_id(int id) {
    for(int i = 0; i < device_count; i++) {
@@ -169,29 +165,6 @@ static void remove_device(int id) {
     device_count--;
 
     printf("Device id=%d removed successfully.\n\n", id);
-}
-
-static void remove_device_menu() {
-    char buffer[MAX_CMD_LEN];
-    char *endptr;
-    long id;
-
-    printf("What device you want to remove?\n");
-    printf("ID> ");
-
-    if(!read_line(buffer, sizeof(buffer))) {
-        printf("Exit...");
-        return;
-    }
-
-    id = strtol(buffer, &endptr, 10);
-
-    if(endptr == buffer || *endptr != '\0') {
-        printf("Invalid ID\n");
-        return;
-    }
-
-    remove_device(id);
 }
 
 void controller_run() {
@@ -223,13 +196,19 @@ void controller_run() {
         }
         else if(strcmp(tokens[0], "add") == 0) {
             if(count < 2) {
-                printf("Invalid command. Device not specified\n\n");
+                printf("Invalid command. Device name is missing.\n");
             } else {
                 add_device(tokens[1]);
             }
         }
         else if(strcmp(tokens[0], "del") == 0) {
-            remove_device_menu();
+            if(count < 2) {
+                printf("Invalid command. Device id is missing. \n");
+            }
+            else {
+                int id = parse_id(tokens[1]);
+                id != -1 ? remove_device(id) : printf("Invalid id.");
+            }
         }
         else if(strcmp(tokens[0], "link") == 0) {
             printf("This feature will be avaliable soon!\n\n");
