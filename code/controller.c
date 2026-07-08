@@ -22,8 +22,7 @@ static int curr_id = 0;         //assegna un id che non decrementa all'eliminazi
 //devo averne due per evitare conflitti causa eliminazione
 
 static void devices_list(void);
-static void add_device(DeviceType type);
-static void add_device_menu();
+static void add_device(char* device);
 
 static const char *device_type_to_string(DeviceType type) {
     switch (type) {
@@ -70,7 +69,23 @@ static void devices_list(void) {
     }
 }
 
-static void add_device(DeviceType type) {
+static void add_device(char* device) {
+    DeviceType type;
+
+    if(strcmp(device, "bulb") == 0) {
+        type = DEVICE_BULB;
+    }
+    else if(strcmp(device, "window") == 0) {
+        type = DEVICE_WINDOW;
+    }
+    else if(strcmp(device, "fridge") == 0) {
+        type = DEVICE_FRIDGE;
+    }
+    else {
+        printf("Invalid device type.\n\n");
+        return;
+    }
+
     if(device_count >= MAX_DEVICES) {
         printf("You reached the limit of devices.\n\n");
         return;
@@ -82,23 +97,19 @@ static void add_device(DeviceType type) {
         return;
     }
     
-    if(pid==0) {
-        switch (type)
-        {
-        case DEVICE_BULB:
-            create_bulb(curr_id);
-            //_exit(0)
-            break;
-        case DEVICE_WINDOW:
-            create_window(curr_id);
-            //_exit(0)
-            break;
-        case DEVICE_FRIDGE:
-            create_fridge(curr_id);
-            //_exit(0)
-            break;
-        default:
-            _exit(1);
+    if(pid == 0) {
+        switch (type) {
+            case DEVICE_BULB:
+                create_bulb(curr_id);
+                break;
+            case DEVICE_WINDOW:
+                create_window(curr_id);
+                break;
+            case DEVICE_FRIDGE:
+                create_fridge(curr_id);
+                break;
+            default:
+                _exit(1);
         }
         _exit(0);
     }
@@ -113,47 +124,23 @@ static void add_device(DeviceType type) {
     device_count++;
     curr_id++;
 
-    //printf("Do you want to create another device? [y/n\n]");
-    //printf("> ");
-    
-    controller_menu();
 }
 
-static void add_device_menu(void) {
-    char buffer[MAX_CMD_LEN];
-
-    printf("What do you want to create?\n");
-    printf("[1] A bulb\n");
-    printf("[2] A window\n");
-    printf("[3] A fridge\n");
-    printf("[4] Back\n");
-    printf("> ");
-
-    if(!read_line(buffer, sizeof(buffer))) {
-        printf("Exit...");
-        return;
-    }
-
-    switch (buffer[0])
-    {
-    case '1':
+/*static void add_device_menu(char* device) {
+    if(strcmp(device, "bulb") == 0) {
         add_device(DEVICE_BULB);
-        break;
-    case '2':
+    }
+    else if(strcmp(device, "window") == 0) {
         add_device(DEVICE_WINDOW);
-        break;
-    case '3':
+    }
+    else if(strcmp(device, "fridge") == 0) {
         add_device(DEVICE_FRIDGE);
-        break;
-    case '4':
-    case '\0':
-        return;
-    default:
-        printf("Invalid choice.\n");
-        return;
+    }
+    else {
+        printf("Invalid command.\n\n");
     }
 
-}
+}*/
 
 static int find_device_by_id(int id) {
    for(int i = 0; i < device_count; i++) {
@@ -228,7 +215,6 @@ void controller_run() {
             tokens[count] = currToken;
             count++;
             currToken = strtok(NULL, " ");
-            printf("%s\n", tokens[count-1]);
         }
 
         //switch non si può fare perché non funziona con le stringhe (solo numeri e char)
@@ -236,7 +222,11 @@ void controller_run() {
             devices_list();
         }
         else if(strcmp(tokens[0], "add") == 0) {
-            add_device_menu();
+            if(count < 2) {
+                printf("Invalid command. Device not specified\n\n");
+            } else {
+                add_device(tokens[1]);
+            }
         }
         else if(strcmp(tokens[0], "del") == 0) {
             remove_device_menu();
@@ -255,9 +245,10 @@ void controller_run() {
         }
         else if(strcmp(tokens[0], "quit") == 0) {
             printf("Exit...\n\n");
+            return;
         }
         else {
-            printf("Non available command.\n\n");
+            printf("Invalid command.\n\n");
         }
     }
 
