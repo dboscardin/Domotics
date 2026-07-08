@@ -14,6 +14,7 @@
 
 #define MAX_CMD_LEN 16
 #define MAX_DEVICES 50
+#define MAX_TOKENS 10
 
 static DeviceInfo devices[MAX_DEVICES];
 static int device_count = 0;    //conta dispositivi attuali
@@ -106,21 +107,6 @@ static void add_device(DeviceType type) {
     devices[device_count].pid = pid;
     devices[device_count].type = type;
 
-
-    /*switch (type)
-    {
-        case DEVICE_BULB:
-            printf("Bulb ");
-            break;
-
-        case DEVICE_WINDOW:
-            printf("Window ");
-            break;
-
-        case DEVICE_FRIDGE:
-            printf("Fridge ");
-            break;
-    }*/    
     printf("%s", device_type_to_string(type));    
     printf(" created successfully!\nid=%d, pid=%d\n\n", curr_id, pid);
 
@@ -234,30 +220,44 @@ void controller_run() {
             break;
         }
 
-        switch (buffer[0])
-        {
-            case '1':
-                devices_list();
-                break;
-            case '2':
-                add_device_menu();
-                break;
-            case '3':
-                remove_device_menu();
-                break;
-            case '4':
-            case '5':
-            case '6':   
-                printf("This feature will be avaliable soon!\n\n");
-                break;
-            case '7':
-                printf("Exit...\n\n");
-                return;
-            case '\0':
-                break;     
-            default:
-                printf("Invalid choice.\n\n");
-            break;
+        char *tokens[MAX_TOKENS];
+        int count = 0;
+        char *currToken = strtok(buffer, " ");
+
+        while(currToken != NULL && count < MAX_TOKENS) {
+            tokens[count] = currToken;
+            count++;
+            currToken = strtok(NULL, " ");
+            printf("%s\n", tokens[count-1]);
+        }
+
+        //switch non si può fare perché non funziona con le stringhe (solo numeri e char)
+        if(strcmp(tokens[0], "list") == 0) {
+            devices_list();
+        }
+        else if(strcmp(tokens[0], "add") == 0) {
+            add_device_menu();
+        }
+        else if(strcmp(tokens[0], "del") == 0) {
+            remove_device_menu();
+        }
+        else if(strcmp(tokens[0], "link") == 0) {
+            printf("This feature will be avaliable soon!\n\n");
+        }
+        else if(strcmp(tokens[0], "switch") == 0) {
+            printf("This feature will be avaliable soon!\n\n");
+        }
+        else if(strcmp(tokens[0], "info") == 0) {
+            printf("This feature will be avaliable soon!\n\n");
+        }
+        else if(strcmp(tokens[0], "cmds") == 0) {
+            printf("This feature will be avaliable soon!\n\n");
+        }
+        else if(strcmp(tokens[0], "quit") == 0) {
+            printf("Exit...\n\n");
+        }
+        else {
+            printf("Non available command.\n\n");
         }
     }
 
