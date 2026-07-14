@@ -12,7 +12,7 @@
 #include "window.h"
 #include "fridge.h"
 
-#define MAX_CMD_LEN 16
+#define MAX_CMD_LEN 50
 #define MAX_DEVICES 50
 #define MAX_TOKENS 10
 
@@ -167,6 +167,21 @@ static void remove_device(int id) {
     printf("Device id=%d removed successfully.\n\n", id);
 }
 
+static void device_info(int id) {
+    int index = find_device_by_id(id);
+    printf("Id=%d, Pid=%d, Type=%s\n", (index + 1), devices[index].id, devices[index].pid, device_type_to_string(devices[index].type));
+}
+
+static void commands() {
+    printf("Commands list:\n");
+    printf("list: Lists all devices.\n");
+    printf("add <device>: Spawns a new device in the house. (Max 50 devices)\n");
+    printf("del <id>: Delete an existing device.\n");
+    printf("link <id1> to <id2>: id1 will be controlled by id2.\n");
+    printf("switch <id> <label> <pos>: Sets the switch label of device id to position pos.\n");
+    printf("info <id>: Displays the complete details of the device\n");
+    printf("quit: To quit the program.\n");
+}
 void controller_run() {
     char buffer[MAX_CMD_LEN];    
 
@@ -217,10 +232,16 @@ void controller_run() {
             printf("This feature will be avaliable soon!\n\n");
         }
         else if(strcmp(tokens[0], "info") == 0) {
-            printf("This feature will be avaliable soon!\n\n");
+            if(count < 2) {
+                printf("Invalid command. Device id is missing. \n");
+            }
+            else {
+                int id = parse_id(tokens[1]);
+                id != -1 ? device_info(id) : printf("Invalid id.");
+            }
         }
         else if(strcmp(tokens[0], "cmds") == 0) {
-            printf("This feature will be avaliable soon!\n\n");
+            commands();
         }
         else if(strcmp(tokens[0], "quit") == 0) {
             printf("Exit...\n\n");
