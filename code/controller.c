@@ -183,9 +183,27 @@ static void commands() {
     printf("quit: To quit the program.\n");
 }
 void controller_run() {
-    char buffer[MAX_CMD_LEN];    
+    char buffer[MAX_CMD_LEN];  
+    char *saveptr;
+    char *token;
 
-    controller_menu();
+    while(true) {
+        if (!read_line(buffer, sizeof(buffer))) {
+            printf("Exit...\n\n");
+            break;
+        }
+        token = strtok_r(buffer, " ", &saveptr);
+        switch (token)
+        {
+        case "":
+            /* code */
+            break;
+        
+        default:
+            break;
+        }
+    }
+    /*controller_menu();
     while(true) {
 
         printf("domotics> ");
@@ -250,6 +268,6 @@ void controller_run() {
         else {
             printf("Invalid command.\n\n");
         }
-    }
+    }*/
 
 }

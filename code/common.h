@@ -1,4 +1,7 @@
 //enum errori, costanti, tipi condivisi
+
+
+//forse da rimuovere
 #ifndef COMMON_H
 #define COMMON_H
 
