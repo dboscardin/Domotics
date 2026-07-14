@@ -48,13 +48,13 @@ static int read_line(char *buffer, size_t size) {
 
 static void controller_menu(void) {
     printf("What do you want to do?\n");
-    printf("[1] Show devices list\n");
+    /*printf("[1] Show devices list\n");
     printf("[2] Add a new device\n");
     printf("[3] Delete a device\n");
     printf("[4] Link two devices\n");
     printf("[5] Switch a device\n");
     printf("[6] Get more info\n");
-    printf("[7] Quit\n");
+    printf("[7] Quit\n");*/
 }
 
 static void devices_list(void) {
@@ -106,21 +106,6 @@ static void add_device(DeviceType type) {
     devices[device_count].pid = pid;
     devices[device_count].type = type;
 
-
-    /*switch (type)
-    {
-        case DEVICE_BULB:
-            printf("Bulb ");
-            break;
-
-        case DEVICE_WINDOW:
-            printf("Window ");
-            break;
-
-        case DEVICE_FRIDGE:
-            printf("Fridge ");
-            break;
-    }*/    
     printf("%s", device_type_to_string(type));    
     printf(" created successfully!\nid=%d, pid=%d\n\n", curr_id, pid);
 
@@ -222,9 +207,27 @@ static void remove_device_menu() {
 }
 
 void controller_run() {
-    char buffer[MAX_CMD_LEN];    
+    char buffer[MAX_CMD_LEN];  
+    char *saveptr;
+    char *token;
 
-    controller_menu();
+    while(true) {
+        if (!read_line(buffer, sizeof(buffer))) {
+            printf("Exit...\n\n");
+            break;
+        }
+        token = strtok_r(buffer, " ", &saveptr);
+        switch (token)
+        {
+        case "":
+            /* code */
+            break;
+        
+        default:
+            break;
+        }
+    }
+    /*controller_menu();
     while(true) {
 
         printf("domotics> ");
@@ -259,6 +262,6 @@ void controller_run() {
                 printf("Invalid choice.\n\n");
             break;
         }
-    }
+    }*/
 
 }
