@@ -14,6 +14,7 @@
 
 #define MAX_CMD_LEN 16
 #define MAX_DEVICES 50
+#define MAX_TOKENS 10
 
 static DeviceInfo devices[MAX_DEVICES];
 static int device_count = 0;    //conta dispositivi attuali
@@ -21,8 +22,7 @@ static int curr_id = 0;         //assegna un id che non decrementa all'eliminazi
 //devo averne due per evitare conflitti causa eliminazione
 
 static void devices_list(void);
-static void add_device(DeviceType type);
-static void add_device_menu();
+static void add_device(char* device);
 
 static const char *device_type_to_string(DeviceType type) {
     switch (type) {
@@ -69,7 +69,23 @@ static void devices_list(void) {
     }
 }
 
-static void add_device(DeviceType type) {
+static void add_device(char* device) {
+    DeviceType type;
+
+    if(strcmp(device, "bulb") == 0) {
+        type = DEVICE_BULB;
+    }
+    else if(strcmp(device, "window") == 0) {
+        type = DEVICE_WINDOW;
+    }
+    else if(strcmp(device, "fridge") == 0) {
+        type = DEVICE_FRIDGE;
+    }
+    else {
+        printf("Invalid device type.\n\n");
+        return;
+    }
+
     if(device_count >= MAX_DEVICES) {
         printf("You reached the limit of devices.\n\n");
         return;
@@ -81,23 +97,19 @@ static void add_device(DeviceType type) {
         return;
     }
     
-    if(pid==0) {
-        switch (type)
-        {
-        case DEVICE_BULB:
-            create_bulb(curr_id);
-            //_exit(0)
-            break;
-        case DEVICE_WINDOW:
-            create_window(curr_id);
-            //_exit(0)
-            break;
-        case DEVICE_FRIDGE:
-            create_fridge(curr_id);
-            //_exit(0)
-            break;
-        default:
-            _exit(1);
+    if(pid == 0) {
+        switch (type) {
+            case DEVICE_BULB:
+                create_bulb(curr_id);
+                break;
+            case DEVICE_WINDOW:
+                create_window(curr_id);
+                break;
+            case DEVICE_FRIDGE:
+                create_fridge(curr_id);
+                break;
+            default:
+                _exit(1);
         }
         _exit(0);
     }
@@ -112,46 +124,18 @@ static void add_device(DeviceType type) {
     device_count++;
     curr_id++;
 
-    //printf("Do you want to create another device? [y/n\n]");
-    //printf("> ");
-    
-    controller_menu();
 }
 
-static void add_device_menu(void) {
-    char buffer[MAX_CMD_LEN];
+static int parse_id(const char *charId) {
+    char *endptr;
 
-    printf("What do you want to create?\n");
-    printf("[1] A bulb\n");
-    printf("[2] A window\n");
-    printf("[3] A fridge\n");
-    printf("[4] Back\n");
-    printf("> ");
+    long val = strtol(charId, &endptr, 10);
 
-    if(!read_line(buffer, sizeof(buffer))) {
-        printf("Exit...");
-        return;
+    if(endptr == charId || *endptr != '\0' || val < 0) {
+        printf("Invalid ID.\n");
+        return -1;
     }
-
-    switch (buffer[0])
-    {
-    case '1':
-        add_device(DEVICE_BULB);
-        break;
-    case '2':
-        add_device(DEVICE_WINDOW);
-        break;
-    case '3':
-        add_device(DEVICE_FRIDGE);
-        break;
-    case '4':
-    case '\0':
-        return;
-    default:
-        printf("Invalid choice.\n");
-        return;
-    }
-
+    return (int)val;
 }
 
 static int find_device_by_id(int id) {
@@ -181,29 +165,6 @@ static void remove_device(int id) {
     device_count--;
 
     printf("Device id=%d removed successfully.\n\n", id);
-}
-
-static void remove_device_menu() {
-    char buffer[MAX_CMD_LEN];
-    char *endptr;
-    long id;
-
-    printf("What device you want to remove?\n");
-    printf("ID> ");
-
-    if(!read_line(buffer, sizeof(buffer))) {
-        printf("Exit...");
-        return;
-    }
-
-    id = strtol(buffer, &endptr, 10);
-
-    if(endptr == buffer || *endptr != '\0') {
-        printf("Invalid ID\n");
-        return;
-    }
-
-    remove_device(id);
 }
 
 void controller_run() {
@@ -237,30 +198,54 @@ void controller_run() {
             break;
         }
 
-        switch (buffer[0])
-        {
-            case '1':
-                devices_list();
-                break;
-            case '2':
-                add_device_menu();
-                break;
-            case '3':
-                remove_device_menu();
-                break;
-            case '4':
-            case '5':
-            case '6':   
-                printf("This feature will be avaliable soon!\n\n");
-                break;
-            case '7':
-                printf("Exit...\n\n");
-                return;
-            case '\0':
-                break;     
-            default:
-                printf("Invalid choice.\n\n");
-            break;
+        char *tokens[MAX_TOKENS];
+        int count = 0;
+        char *currToken = strtok(buffer, " ");
+
+        while(currToken != NULL && count < MAX_TOKENS) {
+            tokens[count] = currToken;
+            count++;
+            currToken = strtok(NULL, " ");
+        }
+
+        //switch non si può fare perché non funziona con le stringhe (solo numeri e char)
+        if(strcmp(tokens[0], "list") == 0) {
+            devices_list();
+        }
+        else if(strcmp(tokens[0], "add") == 0) {
+            if(count < 2) {
+                printf("Invalid command. Device name is missing.\n");
+            } else {
+                add_device(tokens[1]);
+            }
+        }
+        else if(strcmp(tokens[0], "del") == 0) {
+            if(count < 2) {
+                printf("Invalid command. Device id is missing. \n");
+            }
+            else {
+                int id = parse_id(tokens[1]);
+                id != -1 ? remove_device(id) : printf("Invalid id.");
+            }
+        }
+        else if(strcmp(tokens[0], "link") == 0) {
+            printf("This feature will be avaliable soon!\n\n");
+        }
+        else if(strcmp(tokens[0], "switch") == 0) {
+            printf("This feature will be avaliable soon!\n\n");
+        }
+        else if(strcmp(tokens[0], "info") == 0) {
+            printf("This feature will be avaliable soon!\n\n");
+        }
+        else if(strcmp(tokens[0], "cmds") == 0) {
+            printf("This feature will be avaliable soon!\n\n");
+        }
+        else if(strcmp(tokens[0], "quit") == 0) {
+            printf("Exit...\n\n");
+            return;
+        }
+        else {
+            printf("Invalid command.\n\n");
         }
     }*/
 
