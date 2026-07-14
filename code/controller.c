@@ -169,7 +169,7 @@ static void remove_device(int id) {
 
 static void device_info(int id) {
     int index = find_device_by_id(id);
-    printf("Id=%d, Pid=%d, Type=%s\n", (index + 1), devices[index].id, devices[index].pid, device_type_to_string(devices[index].type));
+    printf("%d --> Id=%d, Pid=%d, Type=%s\n", (index + 1), devices[index].id, devices[index].pid, device_type_to_string(devices[index].type));
 }
 
 static void commands() {
@@ -184,26 +184,8 @@ static void commands() {
 }
 void controller_run() {
     char buffer[MAX_CMD_LEN];  
-    char *saveptr;
-    char *token;
 
-    while(true) {
-        if (!read_line(buffer, sizeof(buffer))) {
-            printf("Exit...\n\n");
-            break;
-        }
-        token = strtok_r(buffer, " ", &saveptr);
-        switch (token)
-        {
-        case "":
-            /* code */
-            break;
-        
-        default:
-            break;
-        }
-    }
-    /*controller_menu();
+    controller_menu();
     while(true) {
 
         printf("domotics> ");
@@ -240,7 +222,11 @@ void controller_run() {
             }
             else {
                 int id = parse_id(tokens[1]);
-                id != -1 ? remove_device(id) : printf("Invalid id.");
+                if(id != -1) {
+                    remove_device(id);
+                } else {
+                    printf("Invalid id.\n");
+                }
             }
         }
         else if(strcmp(tokens[0], "link") == 0) {
@@ -255,7 +241,11 @@ void controller_run() {
             }
             else {
                 int id = parse_id(tokens[1]);
-                id != -1 ? device_info(id) : printf("Invalid id.");
+                if(id != -1) {
+                    device_info(id);
+                } else {
+                    printf("Invalid id.\n");
+                }
             }
         }
         else if(strcmp(tokens[0], "cmds") == 0) {
@@ -268,6 +258,6 @@ void controller_run() {
         else {
             printf("Invalid command.\n\n");
         }
-    }*/
+    }
 
 }
