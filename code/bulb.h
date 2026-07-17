@@ -9,6 +9,6 @@ typedef struct {
     int time;
 } Bulb;
 
-void create_bulb(int id);
+Bulb create_bulb(int id);
 
 #endif
