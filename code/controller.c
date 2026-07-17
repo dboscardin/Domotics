@@ -46,17 +46,6 @@ static int read_line(char *buffer, size_t size) {
     return 1;
 }
 
-static void controller_menu(void) {
-    printf("What do you want to do?\n");
-    /*printf("[1] Show devices list\n");
-    printf("[2] Add a new device\n");
-    printf("[3] Delete a device\n");
-    printf("[4] Link two devices\n");
-    printf("[5] Switch a device\n");
-    printf("[6] Get more info\n");
-    printf("[7] Quit\n");*/
-}
-
 static void devices_list(void) {
     if(device_count == 0)
         printf("No devices yet\n\n");
@@ -185,7 +174,7 @@ static void commands() {
 void controller_run() {
     char buffer[MAX_CMD_LEN];  
 
-    controller_menu();
+    printf("What do you want to do?\n");
     while(true) {
 
         printf("domotics> ");

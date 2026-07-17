@@ -11,4 +11,6 @@ typedef struct {
 
 Bulb create_bulb(int id);
 
+void bulb_run(Bulb *bulb);
+
 #endif

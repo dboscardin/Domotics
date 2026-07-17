@@ -9,6 +9,8 @@ typedef struct {
     int time;
 } Window;
 
-void create_window(int id);
+Window create_window(int id);
+
+void window_run(Window *window);
 
 #endif

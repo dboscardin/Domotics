@@ -13,6 +13,8 @@ typedef struct {
     int thermostat;
 } Fridge;
 
-void create_fridge(int id);
+Fridge create_fridge(int id);
+
+void fridge_run(Fridge *fridge);
 
 #endif
