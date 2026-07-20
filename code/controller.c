@@ -49,7 +49,7 @@ static int read_line(char *buffer, size_t size) {
 
 static void devices_list(void) {
     if(device_count == 0)
-        printf("No devices yet\n\n");
+        printf("No devices yet\n");
     else {
         for (int i = 0; i < device_count; i++)
         {
@@ -72,12 +72,12 @@ static void add_device(char* device) {
         type = DEVICE_FRIDGE;
     }
     else {
-        printf("Invalid device type.\n\n");
+        printf("Invalid device type.\n");
         return;
     }
 
     if(device_count >= MAX_DEVICES) {
-        printf("You reached the limit of devices.\n\n");
+        printf("You reached the limit of devices.\n");
         return;
     }
 
@@ -118,7 +118,7 @@ static void add_device(char* device) {
     devices[device_count].fifo_fd = wfd;
 
     printf("%s", device_type_to_string(type));    
-    printf(" created successfully!\nid=%d, pid=%d\n\n", curr_id, pid);
+    printf(" created successfully!\nid=%d, pid=%d\n", curr_id, pid);
 
     device_count++;
     curr_id++;
@@ -149,7 +149,7 @@ static void remove_device(int id) {
 
     int index = find_device_by_id(id);
     if(index == -1) {
-        printf("No device with this Id.\n\n");
+        printf("No device with this Id.\n");
         return;
     }
 
@@ -163,7 +163,7 @@ static void remove_device(int id) {
 
     device_count--;
 
-    printf("Device id=%d removed successfully.\n\n", id);
+    printf("Device id=%d removed successfully.\n", id);
 }
 
 static void device_info(int id) {
@@ -209,15 +209,15 @@ void controller_run() {
             devices_list();
         }
         else if(strcmp(tokens[0], "add") == 0) {
-            if(count < 2) {
-                printf("Invalid command. Device name is missing.\n");
+            if(count != 2) {
+                printf("Invalid command. Structure should be: add <device>.\n");
             } else {
                 add_device(tokens[1]);
             }
         }
         else if(strcmp(tokens[0], "del") == 0) {
-            if(count < 2) {
-                printf("Invalid command. Device id is missing. \n");
+            if(count != 2) {
+                printf("Invalid command. Structure should be: del <id>. \n");
             }
             else {
                 int id = parse_id(tokens[1]);
@@ -229,10 +229,35 @@ void controller_run() {
             }
         }
         else if(strcmp(tokens[0], "link") == 0) {
-            printf("This feature will be avaliable soon!\n\n");
+            if(count != 4) {
+                printf("Invalid command. Structure should be: link <id1> to <id2>. \n");
+            }
+            printf("This feature will be avaliable soon!\n");
         }
         else if(strcmp(tokens[0], "switch") == 0) {
-            printf("This feature will be avaliable soon!\n\n");
+            bool isCommandOk = true;
+            if(count != 4) {
+                isCommandOk = false;
+            } 
+            int id = parse_id(tokens[1]);
+            if(id == -1) {
+                isCommandOk = false;
+            }
+            char *registers[] = {"power", "time", "is_open", "delay", "perc", "temp", "thermostat"};
+            bool labelFound = false;
+            for(int i = 0; i < sizeof(registers); i++) {
+                if(strcomp(tokens[2], registers[i]))
+                    labelFound = true;
+            }
+            if(!labelFound) {
+                isCommandOk = false;
+            }
+
+            if(isCommandOk) {
+                switchDevice(int id, char *label, bool pos);
+            } else {
+                printf("Invalid command. Structure should be: switch <id> <label> <pos>. \n");
+            }
         }
         else if(strcmp(tokens[0], "info") == 0) {
             if(count < 2) {
@@ -255,7 +280,7 @@ void controller_run() {
             return;
         }
         else {
-            printf("Invalid command.\n\n");
+            printf("Invalid command.\n");
         }
     }
 

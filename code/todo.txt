@@ -1,0 +1,5 @@
+1. switch and ilnk commands
+2. hub e timer
+3. sistemare info che deve dire anche lo stato (off/on)
+4. sistemare terminazione figli 
+5. unlink?
