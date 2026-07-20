@@ -13,8 +13,7 @@ Window create_window(int id) {
 } 
 
 void window_run(Window *window) {
-    ipc_create_fifo(window->id, 4);
-    int fd = ipc_open_for_listening(window->id, 4);
+    int fd = ipc_open_for_listening(window->id, DEVICE_WINDOW);
     char buffer[BUFFER_SIZE];
     while(1) {
         ipc_read_line(fd, buffer, sizeof(buffer));

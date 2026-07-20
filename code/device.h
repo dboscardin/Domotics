@@ -18,6 +18,7 @@ typedef struct {
     int id;
     pid_t pid;
     DeviceType type;
+    int fifo_fd;
 } DeviceInfo;
 
 #endif

@@ -9,7 +9,7 @@
 #include "device.h"
 #define PERMS 0666
 
-const char *names[] = {"bulb", "fridge", "window"};
+const char *names[] = {"controller", "hub", "timer", "bulb", "window", "fridge"};
 
 int ipc_create_fifo(int id, DeviceType type) {
     char path_name[20];
@@ -25,6 +25,15 @@ int ipc_open_for_listening(int id, DeviceType type) {
     int fd = open(path_name,  O_RDONLY);
     if(fd == -1) perror("open");
     
+    return fd;
+}
+
+int ipc_open_for_writing(int id, DeviceType type) {
+    char path_name[20];
+    sprintf(path_name, "/tmp/%s%d", names[type], id);
+    int fd = open(path_name,  O_WRONLY);
+    if(fd == -1) perror("open");
+
     return fd;
 }
 

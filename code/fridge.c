@@ -17,8 +17,7 @@ Fridge create_fridge(int id) {
 }
 
 void fridge_run(Fridge *fridge) {
-    ipc_create_fifo(fridge->id, 5);
-    int fd = ipc_open_for_listening(fridge->id, 5);
+    int fd = ipc_open_for_listening(fridge->id, DEVICE_FRIDGE);
     char buffer[BUFFER_SIZE];
     while(1) {
         ipc_read_line(fd, buffer, sizeof(buffer));

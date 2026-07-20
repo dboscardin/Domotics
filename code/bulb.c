@@ -16,8 +16,7 @@ Bulb create_bulb(int id) {
 }
 
 void bulb_run(Bulb *bulb) {
-    ipc_create_fifo(bulb->id, 3);
-    int fd = ipc_open_for_listening(bulb->id, 3);
+    int fd = ipc_open_for_listening(bulb->id, DEVICE_BULB);
     char buffer[BUFFER_SIZE];
     while(1) {
         ipc_read_line(fd, buffer, sizeof(buffer));

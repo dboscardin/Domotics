@@ -11,6 +11,7 @@
 #include "bulb.h"
 #include "window.h"
 #include "fridge.h"
+#include "ipc.h"
 
 #define MAX_CMD_LEN 50
 #define MAX_DEVICES 50
@@ -80,6 +81,11 @@ static void add_device(char* device) {
         return;
     }
 
+    if(ipc_create_fifo(curr_id, type) == -1) {
+        printf("FIFO creation failed.\n");
+        return;
+    }
+
     pid_t pid = fork();
     if (pid < 0) {
         perror("Error during fork.");
@@ -103,9 +109,13 @@ static void add_device(char* device) {
         _exit(0);
     }
 
+    //il padre apre in scrittura per comandi futuri
+    int wfd = ipc_open_for_writing(curr_id, type);
+
     devices[device_count].id = curr_id;
     devices[device_count].pid = pid;
     devices[device_count].type = type;
+    devices[device_count].fifo_fd = wfd;
 
     printf("%s", device_type_to_string(type));    
     printf(" created successfully!\nid=%d, pid=%d\n\n", curr_id, pid);
