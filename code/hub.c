@@ -111,7 +111,7 @@ void create_hub(int id) {
                 int child_id;
 
                 if (sscanf(buffer, "UNLINK_CHILD %d", &child_id) == 1){
-                    hub_remove_child(&hub, child_id,);
+                    hub_remove_child(&hub, child_id);
                 } else {
                     fprintf(stderr, "Error: invalid LINK_CHILD format. \n");
                 }
