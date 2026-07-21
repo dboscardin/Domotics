@@ -97,7 +97,7 @@ void create_hub(int id) {
 
         if (bytes_letti > 0) {
             printf("Message received: '%s'\n", buffer);
-
+            //link
             if (strncmp(buffer, "LINK_CHILD", 10) == 0) {
                 int child_id;
                 int child_type_int;
@@ -107,6 +107,7 @@ void create_hub(int id) {
                 } else {
                     fprintf(stderr, "Error: invalid LINK_CHILD format.\n");
                 }
+            //unlink
             } else if(strncmp(buffer, "UNLINK_CHILD", 12) == 0){
                 int child_id;
 
@@ -115,7 +116,25 @@ void create_hub(int id) {
                 } else {
                     fprintf(stderr, "Error: invalid LINK_CHILD format. \n");
                 }
+            //delete        
+            } else if(strncmp(buffer, "DELETE",6) == 0){
 
+                printf("Received DELETE command. Cascading to %d children...\n", hub.num_children);
+                
+                // Propagazione DELETE a tutti i figli
+                for (int i = 0; i < hub.num_children; i++) {
+                    int child_id = hub.children[i].id;
+                    DeviceType child_type = hub.children[i].type;
+
+                    int fd_child = ipc_open_for_writing(child_id, child_type);
+                    if (fd_child != -1) {
+                        ipc_send_message(fd_child, "DELETE");
+                        close(fd_child);
+                    }
+                }
+                close(fd_ascolto);
+                printf("Terminating process.\n");
+                exit(0);
             }
 
         } else {
