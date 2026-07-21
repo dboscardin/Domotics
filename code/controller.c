@@ -12,6 +12,7 @@
 #include "window.h"
 #include "fridge.h"
 #include "ipc.h"
+#include "hub.h"
 
 #define MAX_CMD_LEN 50
 #define MAX_DEVICES 50
@@ -24,6 +25,12 @@ static int curr_id = 0;         //assegna un id che non decrementa all'eliminazi
 
 static void devices_list(void);
 static void add_device(char* device);
+static int parse_id(const char *charId);
+static int find_device_by_id(int id);
+static void link_devices(int child_id, int hub_id);
+static void remove_device(int id);
+static void device_info(int id);
+static void commands(void);
 
 static const char *device_type_to_string(DeviceType type) {
     switch (type) {
@@ -71,6 +78,9 @@ static void add_device(char* device) {
     else if(strcmp(device, "fridge") == 0) {
         type = DEVICE_FRIDGE;
     }
+    else if(strcmp(device, "hub") == 0) {
+        type = DEVICE_HUB;
+    }
     else {
         printf("Invalid device type.\n");
         return;
@@ -103,6 +113,9 @@ static void add_device(char* device) {
             case DEVICE_FRIDGE:
                 create_fridge(curr_id);
                 break;
+            case DEVICE_HUB:
+                create_hub(curr_id);
+                break;
             default:
                 _exit(1);
         }
@@ -116,6 +129,8 @@ static void add_device(char* device) {
     devices[device_count].pid = pid;
     devices[device_count].type = type;
     devices[device_count].fifo_fd = wfd;
+
+    usleep(50000); //50ms
 
     printf("%s", device_type_to_string(type));    
     printf(" created successfully!\nid=%d, pid=%d\n", curr_id, pid);
@@ -145,6 +160,43 @@ static int find_device_by_id(int id) {
     return -1;
 }
 
+static void link_devices(int child_id, int hub_id) {
+    int child_idx = find_device_by_id(child_id);
+    int hub_idx = find_device_by_id(hub_id);
+
+    if (child_idx == -1) {
+        printf("Error: child device with ID %d does not exist.\n\n", child_id);
+        return;
+    }
+
+    if (hub_idx == -1) {
+        printf("Error: Hub with ID %d does not exist.\n\n", hub_id);
+        return;
+    }
+
+    if (devices[hub_idx].type != DEVICE_HUB) {
+        printf("Error: device ID %d is not a Hub.\n\n", hub_id);
+        return;
+    }
+
+    printf("Link request sent: Device %d -> Hub %d\n", child_id, hub_id);
+    fflush(stdout);
+
+    //invia messaggio all'hub. tramite fifo
+    char msg[64];
+    snprintf(msg, sizeof(msg), "LINK_CHILD %d %d", child_id, devices[child_idx].type);
+    int fd = ipc_open_for_writing(hub_id, DEVICE_HUB);
+    if (fd != -1) {
+        ipc_send_message(fd, msg);
+        close(fd);
+
+        usleep(50000); //50ms
+
+    } else {
+        printf("Error: failed to connect to Hub %d FIFO.\n\n", hub_id);
+    }
+}
+
 static void remove_device(int id) {
 
     int index = find_device_by_id(id);
@@ -171,7 +223,7 @@ static void device_info(int id) {
     printf("%d --> Id=%d, Pid=%d, Type=%s\n", (index + 1), devices[index].id, devices[index].pid, device_type_to_string(devices[index].type));
 }
 
-static void commands() {
+static void commands(void) {
     printf("Commands list:\n");
     printf("list: Lists all devices.\n");
     printf("add <device>: Spawns a new device in the house. (Max 50 devices)\n");
@@ -181,7 +233,7 @@ static void commands() {
     printf("info <id>: Displays the complete details of the device\n");
     printf("quit: To quit the program.\n");
 }
-void controller_run() {
+void controller_run(void) {
     char buffer[MAX_CMD_LEN];  
 
     printf("What do you want to do?\n");
@@ -202,6 +254,11 @@ void controller_run() {
             tokens[count] = currToken;
             count++;
             currToken = strtok(NULL, " ");
+        }
+
+        //evita il crash se l'utente preme invio senza scrivere nulla
+        if (count == 0) {
+            continue;
         }
 
         //switch non si può fare perché non funziona con le stringhe (solo numeri e char)
@@ -229,10 +286,16 @@ void controller_run() {
             }
         }
         else if(strcmp(tokens[0], "link") == 0) {
-            if(count != 4) {
-                printf("Invalid command. Structure should be: link <id1> to <id2>. \n");
+            if (count < 4 || strcmp(tokens[2], "to") != 0) {
+                printf("Invalid command format. Use: link <id1> to <id2>\n\n");
+            } else {
+                int child_id = parse_id(tokens[1]);
+                int hub_id = parse_id(tokens[3]);
+
+                if (child_id != -1 && hub_id != -1) {
+                    link_devices(child_id, hub_id);
+                }
             }
-            printf("This feature will be avaliable soon!\n");
         }
         else if(strcmp(tokens[0], "switch") == 0) {
             bool isCommandOk = true;
@@ -246,8 +309,9 @@ void controller_run() {
             char *registers[] = {"power", "time", "is_open", "delay", "perc", "temp", "thermostat"};
             bool labelFound = false;
             for(int i = 0; i < sizeof(registers); i++) {
-                if(strcomp(tokens[2], registers[i]))
+                if(strcmp(tokens[2], registers[i]) == 0) {
                     labelFound = true;
+                }
             }
             if(!labelFound) {
                 isCommandOk = false;
@@ -258,7 +322,8 @@ void controller_run() {
             } else {
                 printf("Invalid command. Structure should be: switch <id> <label> <pos>. \n");
             }*/
-        }
+            }
+
         else if(strcmp(tokens[0], "info") == 0) {
             if(count < 2) {
                 printf("Invalid command. Device id is missing. \n");
@@ -282,6 +347,6 @@ void controller_run() {
         else {
             printf("Invalid command.\n");
         }
-    }
-
+        
+    }   
 }

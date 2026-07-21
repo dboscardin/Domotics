@@ -5,7 +5,7 @@
 
 #define BUFFER_SIZE 50
 
-Bulb create_bulb(int id) {
+Bulb create_bulb_struct(int id) {
     Bulb bulb = {
         .id = id,
         .power = false,
@@ -21,4 +21,10 @@ void bulb_run(Bulb *bulb) {
     while(1) {
         ipc_read_line(fd, buffer, sizeof(buffer));
     }
+    close(fd);
+}
+
+void create_bulb(int id) {
+    Bulb b = create_bulb_struct(id);
+    bulb_run(&b);
 }
