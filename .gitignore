@@ -1,2 +1,24 @@
+# File oggetto
 *.o
+*.obj
+
+# Librerie statiche e dinamiche
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# Log e file di debug
+*.log
+
+# File di configurazione generati
 domotics
