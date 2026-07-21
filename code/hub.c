@@ -49,15 +49,40 @@ bool hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
     return true;
 }
 
+bool hub_remove_child(HubDevice *hub, int child_id){
+    int index = -1;
+
+    for (int i = 0; i < hub->num_children; i++) {
+        if (hub->children[i].id == child_id) {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == -1) {
+        printf("Child ID %d not found in this Hub.\n", child_id);
+        return false;
+    }
+
+    // Shift degli elementi verso sinistra per coprire il buco
+    for (int i = index; i < hub->num_children - 1; i++) {
+        hub->children[i] = hub->children[i + 1];
+    }
+
+    hub->num_children--;
+    printf("Unlinked child device ID: %d\n", child_id);
+    return true;
+}
+
 void create_hub(int id) {
-    HubDevice my_hub;
-    hub_init(&my_hub, id);
+    HubDevice hub;
+    hub_init(&hub, id);
 
     // Creazione FIFO
-    ipc_create_fifo(my_hub.id, DEVICE_HUB);
+    ipc_create_fifo(hub.id, DEVICE_HUB);
 
     // Apertura FIFO ascolto
-    int fd_ascolto = ipc_open_for_listening(my_hub.id, DEVICE_HUB);
+    int fd_ascolto = ipc_open_for_listening(hub.id, DEVICE_HUB);
 
     if (fd_ascolto == -1) {
         fprintf(stderr, "Error: it was not possible to open the listening FIFO.\n");
@@ -78,11 +103,21 @@ void create_hub(int id) {
                 int child_type_int;
 
                 if (sscanf(buffer, "LINK_CHILD %d %d", &child_id, &child_type_int) == 2) {
-                    hub_add_child(&my_hub, child_id, (DeviceType)child_type_int);
+                    hub_add_child(&hub, child_id, (DeviceType)child_type_int);
                 } else {
                     fprintf(stderr, "Error: invalid LINK_CHILD format.\n");
                 }
+            } else if(strncmp(buffer, "UNLINK_CHILD", 12) == 0){
+                int child_id;
+
+                if (sscanf(buffer, "UNLINK_CHILD %d", &child_id) == 1){
+                    hub_remove_child(&hub, child_id);
+                } else {
+                    fprintf(stderr, "Error: invalid LINK_CHILD format. \n");
+                }
+
             }
+
         } else {
             usleep(50000); // 50ms
         }

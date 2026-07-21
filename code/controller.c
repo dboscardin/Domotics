@@ -33,6 +33,7 @@ static void device_info(int id);
 static void commands(void);
 static void cleanup_all_devices(void);
 static void handle_sigint(int sig);
+static void unlink_device(int child_id,int hub_id);
 
 static const char *device_type_to_string(DeviceType type) {
     switch (type) {
@@ -82,7 +83,12 @@ static void devices_list(void) {
     else {
         for (int i = 0; i < device_count; i++)
         {
-            printf("%d --> Id=%d, Pid=%d, Type=%s\n", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+            printf("%d --> Id=%d, Pid=%d, Type=%s ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+            if(devices[i].parent_id == -1){
+                printf("[Linked: NO]\n");
+            } else {
+                printf("[Linked to ID: %d]\n", devices[i].parent_id);
+            }
         }
         printf("\n");
     }
@@ -125,6 +131,7 @@ static void add_device(char* device) {
     }
     
     if(pid == 0) {
+        signal(SIGINT,SIG_DFL);
         switch (type) {
             case DEVICE_BULB:
                 create_bulb(curr_id);
@@ -151,6 +158,7 @@ static void add_device(char* device) {
     devices[device_count].pid = pid;
     devices[device_count].type = type;
     devices[device_count].fifo_fd = wfd;
+    devices[device_count].parent_id = -1;
 
     usleep(50000); //50ms
 
@@ -211,9 +219,45 @@ static void link_devices(int child_id, int hub_id) {
     if (fd != -1) {
         ipc_send_message(fd, msg);
         close(fd);
+        devices[child_idx].parent_id = hub_id;
 
         usleep(50000); //50ms
 
+    } else {
+        printf("Error: failed to connect to Hub %d FIFO.\n\n", hub_id);
+    }
+}
+
+static void unlink_device(int child_id,int hub_id){
+    int child_idx = find_device_by_id(child_id);
+    int hub_idx = find_device_by_id(hub_id);
+
+    if (child_idx == -1) {
+        printf("Error: child device with ID %d does not exist.\n\n", child_id);
+        return;
+    }
+
+    if (hub_idx == -1) {
+        printf("Error: Hub with ID %d does not exist.\n\n", hub_id);
+        return;
+    }
+
+    if (devices[hub_idx].type != DEVICE_HUB) {
+        printf("Error: device ID %d is not a Hub.\n\n", hub_id);
+        return;
+    }
+
+    printf("Unlink request sent: Device %d from Hub %d\n", child_id, hub_id);
+    fflush(stdout);
+
+    char msg[64];
+    snprintf(msg, sizeof(msg), "UNLINK_CHILD %d", child_id);
+    int fd = ipc_open_for_writing(hub_id, DEVICE_HUB);
+    if (fd != -1) {
+        ipc_send_message(fd, msg);
+        close(fd);
+        devices[child_idx].parent_id = -1;
+        usleep(50000); // 50ms
     } else {
         printf("Error: failed to connect to Hub %d FIFO.\n\n", hub_id);
     }
@@ -251,6 +295,7 @@ static void commands(void) {
     printf("add <device>: Spawns a new device in the house. (Max 50 devices)\n");
     printf("del <id>: Delete an existing device.\n");
     printf("link <id1> to <id2>: id1 will be controlled by id2.\n");
+    printf("unlink <id1> from <id2>: Unlinks id1 from hub id2.\n");
     printf("switch <id> <label> <pos>: Sets the switch label of device id to position pos.\n");
     printf("info <id>: Displays the complete details of the device\n");
     printf("quit: To quit the program.\n");
@@ -324,6 +369,21 @@ void controller_run(void) {
                 }
             }
         }
+        else if(strcmp(tokens[0], "unlink") == 0){
+            int child_id = -1, hub_id = -1;
+
+            if (count == 4 && strcmp(tokens[2], "from") == 0) {
+                child_id = parse_id(tokens[1]);
+                hub_id = parse_id(tokens[3]);
+            }
+            else {
+                printf("Invalid command format. Use: unlink <id1> from <id2>\n\n");
+            }
+
+            if (child_id != -1 && hub_id != -1) {
+                unlink_device(child_id, hub_id);
+            }
+        }
         else if(strcmp(tokens[0], "switch") == 0) {
             bool isCommandOk = true;
             if(count != 4) {
@@ -349,7 +409,7 @@ void controller_run(void) {
             } else {
                 printf("Invalid command. Structure should be: switch <id> <label> <pos>. \n");
             }*/
-            }
+        }
 
         else if(strcmp(tokens[0], "info") == 0) {
             if(count < 2) {

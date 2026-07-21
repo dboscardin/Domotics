@@ -19,6 +19,7 @@ typedef struct {
     pid_t pid;
     DeviceType type;
     int fifo_fd;
+    int parent_id; // -1 se non è collegato a nulla
 } DeviceInfo;
 
 #endif
