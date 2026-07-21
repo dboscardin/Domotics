@@ -34,6 +34,8 @@ static void commands(void);
 static void cleanup_all_devices(void);
 static void handle_sigint(int sig);
 static void unlink_device(int child_id,int hub_id);
+static void remove_device_from_array(int id);
+static void remove_children_from_hub(int parent_id);
 
 static const char *device_type_to_string(DeviceType type) {
     switch (type) {
@@ -263,25 +265,68 @@ static void unlink_device(int child_id,int hub_id){
     }
 }
 
-static void remove_device(int id) {
-
+//rimuove il device dall'array devices
+static void remove_device_from_array(int id) {
     int index = find_device_by_id(id);
-    if(index == -1) {
-        printf("No device with this Id.\n");
+    if (index == -1) return;
+
+    if (devices[index].fifo_fd != -1) {
+        close(devices[index].fifo_fd);
+    }
+
+    for (int i = index; i < device_count - 1; i++) {
+        devices[i] = devices[i + 1];
+    }
+    device_count--;
+}
+
+// Rimuove ricorsivamente i figli associati a un hub
+static void remove_children_from_hub(int parent_id) {
+    for (int i = 0; i < device_count; i++) {
+        if (devices[i].parent_id == parent_id) {
+            int child_id = devices[i].id;
+            
+            if (devices[i].type == DEVICE_HUB) {
+                remove_children_from_hub(child_id);
+            }
+            
+            remove_device_from_array(child_id);
+            i--;
+        }
+    }
+    printf("All devices are removed from hub\n");
+}
+
+static void remove_device(int id) {
+    int index = find_device_by_id(id);
+    if (index == -1) {
+        printf("No device with this Id.\n\n");
         return;
     }
 
-    kill(devices[index].pid, SIGTERM);
-    waitpid(devices[index].pid, NULL, 0);
+    DeviceType type = devices[index].type;
+    pid_t pid = devices[index].pid;
 
-    for (int i = index; i < device_count -1; i++)
-    {
-        devices[i] = devices[i + 1];
+    // Invio DELETE tramite fifo
+    char msg[] = "DELETE";
+    int fd = ipc_open_for_writing(id, type);
+    if (fd != -1) {
+        ipc_send_message(fd, msg);
+        close(fd);
+    } else {
+        kill(pid, SIGKILL);
+    }
+    usleep(100000);
+
+    //Caso hub
+    if (type == DEVICE_HUB) {
+        remove_children_from_hub(id);
     }
 
-    device_count--;
+    remove_device_from_array(id);
 
-    printf("Device id=%d removed successfully.\n", id);
+    printf("Device ID: %d is removed\n", id);
+
 }
 
 static void device_info(int id) {

@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 #include "bulb.h"
 #include "ipc.h"
 
@@ -21,7 +23,15 @@ void bulb_run(Bulb *bulb) {
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
-        // messaggio da fifo
+        
+            printf("Message recevied: '%s'\n",buffer);
+
+            //delete
+            if (strncmp(buffer, "DELETE", 6) == 0){
+                printf("Closed Bulb ID:%d\n", bulb->id);  
+                close(fd);
+                exit(0);
+            }
         } else {
             usleep(50000); // il processo consuma meno risorse
         }

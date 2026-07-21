@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 #include "fridge.h"
 #include "ipc.h"
 
@@ -24,7 +26,15 @@ void fridge_run(Fridge *fridge) {
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
-        // messaggio da fifo
+        
+            printf("Message recevied: '%s'\n",buffer);
+
+            //delete
+            if (strncmp(buffer, "DELETE",6) == 0){
+                printf("Closed Fridge ID:%d\n", fridge->id);
+                close(fd);
+                exit(0);
+            }
         } else {
             usleep(50000); // il processo consuma meno risorse
         }
