@@ -60,7 +60,7 @@ bool hub_remove_child(HubDevice *hub, int child_id){
     }
 
     if (index == -1) {
-        printf("Child ID %d not found in this Hub.\n", hub->id, child_id);
+        printf("Child ID %d not found in this Hub.\n", child_id);
         return false;
     }
 
@@ -70,7 +70,7 @@ bool hub_remove_child(HubDevice *hub, int child_id){
     }
 
     hub->num_children--;
-    printf("Unlinked child device ID: %d\n", hub->id, child_id);
+    printf("Unlinked child device ID: %d\n", child_id);
     return true;
 }
 

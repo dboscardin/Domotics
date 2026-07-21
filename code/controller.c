@@ -83,7 +83,12 @@ static void devices_list(void) {
     else {
         for (int i = 0; i < device_count; i++)
         {
-            printf("%d --> Id=%d, Pid=%d, Type=%s\n", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+            printf("%d --> Id=%d, Pid=%d, Type=%s ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+            if(devices[i].parent_id == -1){
+                printf("[Linked: NO]\n");
+            } else {
+                printf("[Linked to ID: %d]\n", devices[i].parent_id);
+            }
         }
         printf("\n");
     }
@@ -126,6 +131,7 @@ static void add_device(char* device) {
     }
     
     if(pid == 0) {
+        signal(SIGINT,SIG_DFL);
         switch (type) {
             case DEVICE_BULB:
                 create_bulb(curr_id);
@@ -152,6 +158,7 @@ static void add_device(char* device) {
     devices[device_count].pid = pid;
     devices[device_count].type = type;
     devices[device_count].fifo_fd = wfd;
+    devices[device_count].parent_id = -1;
 
     usleep(50000); //50ms
 
@@ -212,6 +219,7 @@ static void link_devices(int child_id, int hub_id) {
     if (fd != -1) {
         ipc_send_message(fd, msg);
         close(fd);
+        devices[child_idx].parent_id = hub_id;
 
         usleep(50000); //50ms
 
@@ -248,6 +256,7 @@ static void unlink_device(int child_id,int hub_id){
     if (fd != -1) {
         ipc_send_message(fd, msg);
         close(fd);
+        devices[child_idx].parent_id = -1;
         usleep(50000); // 50ms
     } else {
         printf("Error: failed to connect to Hub %d FIFO.\n\n", hub_id);
