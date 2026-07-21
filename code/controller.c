@@ -253,11 +253,11 @@ void controller_run() {
                 isCommandOk = false;
             }
 
-            if(isCommandOk) {
+            /*if(isCommandOk) {
                 switchDevice(int id, char *label, bool pos);
             } else {
                 printf("Invalid command. Structure should be: switch <id> <label> <pos>. \n");
-            }
+            }*/
         }
         else if(strcmp(tokens[0], "info") == 0) {
             if(count < 2) {

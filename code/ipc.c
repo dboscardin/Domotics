@@ -13,7 +13,7 @@ const char *names[] = {"controller", "hub", "timer", "bulb", "window", "fridge"}
 
 int ipc_create_fifo(int id, DeviceType type) {
     char path_name[20];
-    sprintf(path_name, "/tmp/%s%d", names[type], id);
+    sprintf(path_name, "/tmp/domotica_%s_%d", names[type], id);
     int result = mkfifo(path_name, PERMS);
     if(result == -1) perror("mkfifo");
     return result;
