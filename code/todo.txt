@@ -3,3 +3,5 @@
 3. sistemare info che deve dire anche lo stato (off/on)
 4. sistemare terminazione figli 
 5. unlink?
+
+6.controllare se i processi vengono uccisi

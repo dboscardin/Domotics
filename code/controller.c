@@ -31,6 +31,8 @@ static void link_devices(int child_id, int hub_id);
 static void remove_device(int id);
 static void device_info(int id);
 static void commands(void);
+static void cleanup_all_devices(void);
+static void handle_sigint(int sig);
 
 static const char *device_type_to_string(DeviceType type) {
     switch (type) {
@@ -42,6 +44,26 @@ static const char *device_type_to_string(DeviceType type) {
         case DEVICE_TIMER:      return "Timer";
         default:                return "Unknown";
     }
+}
+
+// Funzione per terminare tutti i processi figli
+static void cleanup_all_devices(void) {
+    for (int i = 0; i < device_count; i++) {
+        if (devices[i].fifo_fd != -1) {
+            close(devices[i].fifo_fd);
+        }
+        kill(devices[i].pid, SIGTERM);
+        waitpid(devices[i].pid, NULL, 0);
+    }
+    device_count = 0;
+}
+
+// Gestione della chiusura tramite Ctrl+C
+static void handle_sigint(int sig) {
+    (void)sig;
+    printf("\nInterrupted. Terminating all background devices...\n");
+    cleanup_all_devices();
+    exit(0);
 }
 
 static int read_line(char *buffer, size_t size) {
@@ -234,6 +256,11 @@ static void commands(void) {
     printf("quit: To quit the program.\n");
 }
 void controller_run(void) {
+
+    //Ctrl+C
+    signal(SIGINT, handle_sigint);
+
+
     char buffer[MAX_CMD_LEN];  
 
     printf("What do you want to do?\n");
@@ -342,6 +369,7 @@ void controller_run(void) {
         }
         else if(strcmp(tokens[0], "quit") == 0) {
             printf("Exit...\n\n");
+            cleanup_all_devices();
             return;
         }
         else {

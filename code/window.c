@@ -18,7 +18,12 @@ void window_run(Window *window) {
     int fd = ipc_open_for_listening(window->id, DEVICE_WINDOW);
     char buffer[BUFFER_SIZE];
     while(1) {
-        ipc_read_line(fd, buffer, sizeof(buffer));
+        int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
+        if (bytes > 0) {
+        // messaggio da fifo
+        } else {
+        usleep(50000); // il processo consuma meno risorse
+        }
     }
     close(fd);
 }
