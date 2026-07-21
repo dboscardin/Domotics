@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -std=c11 -D_POSIX_C_SOURCE=200809L
 
 TARGET = domotics
-SRCS = code/main.c code/controller.c code/bulb.c code/window.c code/fridge.c code/ipc.c
+SRCS = code/main.c code/controller.c code/bulb.c code/window.c code/fridge.c code/ipc.c code/hub.c code/device.c
 OBJS = $(SRCS:.c=.o)
 
 .PHONY: all build clean run
@@ -27,7 +27,7 @@ $(TARGET): $(OBJS)
 #per partire da uno stato pulito
 clean:
 	rm -f $(OBJS) $(TARGET)
-
+	rm -f /tmp/bulb* /tmp/window* /tmp/fridge* /tmp/hub* /tmp/timer* /tmp/controller*
 #prima compila se serve, poi esegue il programma
 run: build
 	./$(TARGET)
