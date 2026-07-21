@@ -27,6 +27,9 @@ void hub_init(HubDevice *hub, int id);
 //aggiunge un figlio all'hub
 bool hub_add_child(HubDevice *hub, int child_id, DeviceType type);
 
+//rimuove un figlio dall'hub
+bool hub_remove_child(HubDevice *hub, int child_id);
+
 //Creazione hub
 void create_hub(int id);
 
