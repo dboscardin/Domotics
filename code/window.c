@@ -1,15 +1,17 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "window.h"
+#include "ipc.h"
 
 #define BUFFER_SIZE 50
 
-Window create_window(int id) {
+Window create_window_struct(int id) {
     Window window = {
         .id = id,
         .is_open = false,
         .time = 0
     };
+    return window;
 } 
 
 void window_run(Window *window) {
@@ -18,4 +20,11 @@ void window_run(Window *window) {
     while(1) {
         ipc_read_line(fd, buffer, sizeof(buffer));
     }
+    close(fd);
+}
+
+void create_window(int id) {
+    Window w = create_window_struct(id);
+    window_run(&w);
+    
 }

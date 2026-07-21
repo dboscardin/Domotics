@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "fridge.h"
+#include "ipc.h"
 
 #define BUFFER_SIZE 50
 
-Fridge create_fridge(int id) {
+Fridge create_fridge_struct(int id) {
     Fridge fridge = {
         .id = id,
         .is_open = false,
@@ -14,6 +15,7 @@ Fridge create_fridge(int id) {
         .temp = 6,
         .thermostat = 6 
     };
+    return fridge;
 }
 
 void fridge_run(Fridge *fridge) {
@@ -22,4 +24,10 @@ void fridge_run(Fridge *fridge) {
     while(1) {
         ipc_read_line(fd, buffer, sizeof(buffer));
     }
+    close(fd);
+}
+
+void create_fridge(int id) {
+    Fridge f = create_fridge_struct(id);
+    fridge_run(&f);
 }

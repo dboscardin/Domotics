@@ -27,7 +27,7 @@ $(TARGET): $(OBJS)
 #per partire da uno stato pulito
 clean:
 	rm -f $(OBJS) $(TARGET)
-	rm -f /tmp/bulb* /tmp/window* /tmp/fridge* /tmp/hub* /tmp/timer* /tmp/controller*
+	rm -f /tmp/domotica_*
 #prima compila se serve, poi esegue il programma
 run: build
 	./$(TARGET)
