@@ -12,4 +12,6 @@ int ipc_read_line(int fd, char *buffer, size_t size);
 
 int ipc_send_message(int fd, const char *message);
 
+void ipc_remove_fifo(int id, DeviceType type);
+
 #endif

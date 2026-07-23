@@ -59,6 +59,7 @@ static void cleanup_all_devices(void) {
         if (devices[i].fifo_fd != -1) {
             close(devices[i].fifo_fd);
         }
+        ipc_remove_fifo(devices[i].id, devices[i].type);
         kill(devices[i].pid, SIGTERM);
         waitpid(devices[i].pid, NULL, 0);
     }
@@ -274,6 +275,8 @@ static void remove_device_from_array(int id) {
         close(devices[index].fifo_fd);
     }
 
+    ipc_remove_fifo(devices[index].id, devices[index].type);
+
     for (int i = index; i < device_count - 1; i++) {
         devices[i] = devices[i + 1];
     }
@@ -317,6 +320,7 @@ static void remove_device(int id) {
         kill(pid, SIGKILL);
     }
     usleep(100000);
+    waitpid(pid, NULL, WNOHANG);
 
     //Caso hub
     if (type == DEVICE_HUB) {
@@ -397,7 +401,11 @@ static void commands(void) {
 void controller_run(void) {
 
     //Ctrl+C
-    signal(SIGINT, handle_sigint);
+    struct sigaction sa;
+    sa.sa_handler = handle_sigint;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, NULL);
 
 
     char buffer[MAX_CMD_LEN];  
