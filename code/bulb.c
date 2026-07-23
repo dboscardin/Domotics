@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -7,7 +8,6 @@
 #include "ipc.h"
 
 #define BUFFER_SIZE 50
-#define _DEFAULT_SOURCE
 
 Bulb create_bulb_struct(int id) {
     Bulb bulb = {
