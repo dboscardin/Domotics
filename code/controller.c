@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -13,6 +14,7 @@
 #include "fridge.h"
 #include "ipc.h"
 #include "hub.h"
+#include "protocol.h"
 
 #define MAX_CMD_LEN 50
 #define MAX_DEVICES 50
@@ -29,6 +31,8 @@ static int parse_id(const char *charId);
 static int find_device_by_id(int id);
 static void link_devices(int child_id, int hub_id);
 static void remove_device(int id);
+static bool switch_check(char *tokens[], int count);
+static void switch_device(char *tokens[]);
 static void device_info(int id);
 static void commands(void);
 static void cleanup_all_devices(void);
@@ -153,13 +157,9 @@ static void add_device(char* device) {
         _exit(0);
     }
 
-    //il padre apre in scrittura per comandi futuri
-    int wfd = ipc_open_for_writing(curr_id, type);
-
     devices[device_count].id = curr_id;
     devices[device_count].pid = pid;
     devices[device_count].type = type;
-    devices[device_count].fifo_fd = wfd;
     devices[device_count].parent_id = -1;
 
     usleep(50000); //50ms
@@ -347,7 +347,7 @@ static bool switch_check(char *tokens[], int count) {
         }
     }
     if(!labelFound) { 
-        return true;
+        return false;
     }
     if(strcmp(tokens[3], "on") == 0 || strcmp(tokens[3], "off") == 0 ) {
         return true;
@@ -358,7 +358,25 @@ static bool switch_check(char *tokens[], int count) {
 
     //se endptr punta alla fine, tutta la stringa era un numero
     return (*endptr == '\0');
-} 
+}
+
+static void switch_device(char *tokens[]) {
+    int id = parse_id(tokens[1]);
+    int index = find_device_by_id(id);
+    if(index = -1) return;
+
+    char message[MAX_MSG_LEN];
+    snprintf(message, sizeof(message), "SWITCH %s %s", tokens[2], tokens[3]);
+
+    int fd = ipc_open_for_writing(id, devices[index].type);
+    if(fd != -1) {
+        ipc_send_message(fd, message);
+        close(fd);
+        printf("Command sent to Device %d: SWICTH %s % s.\n", id, tokens[2], tokens[3]);
+    } else {
+        printf("Error: Failed to communicate with Device %d.\n", id);
+    }
+}
 
 static void device_info(int id) {
     int index = find_device_by_id(id);
@@ -453,7 +471,7 @@ void controller_run(void) {
                 hub_id = parse_id(tokens[3]);
             }
             else {
-                printf("Invalid command format. Use: unlink <id1> from <id2>\n\n");
+                printf("Invalid command format. Use: unlink <id1> from <id2>\n");
             }
 
             if (child_id != -1 && hub_id != -1) {
@@ -462,9 +480,9 @@ void controller_run(void) {
         }
         else if(strcmp(tokens[0], "switch") == 0) {
             if(switch_check(tokens, count)) {
-                printf("funziona");
+                switch_device(tokens);
             } else {
-                printf("funziona. non valida");
+                printf("Invalid command format. Use  switch <id> <label> <pos>\n");
             }
         }
 
