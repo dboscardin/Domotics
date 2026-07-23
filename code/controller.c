@@ -59,6 +59,7 @@ static void cleanup_all_devices(void) {
         if (devices[i].fifo_fd != -1) {
             close(devices[i].fifo_fd);
         }
+        ipc_remove_fifo(devices[i].id, devices[i].type);
         kill(devices[i].pid, SIGTERM);
         waitpid(devices[i].pid, NULL, 0);
     }
@@ -71,6 +72,31 @@ static void handle_sigint(int sig) {
     printf("\nInterrupted. Terminating all background devices...\n");
     cleanup_all_devices();
     exit(0);
+}
+
+// Handler del segnale SIGCHLD quando un device viene eliminato al di fuori del programma
+static void handle_sigchld(int sig) {
+    (void)sig;
+    int status;
+    pid_t pid;
+
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        // Cerco il dispositivo con questo PID e lo rimuovo dall'array
+        for (int i = 0; i < device_count; i++) {
+            if (devices[i].pid == pid) {
+                if (devices[i].fifo_fd != -1) {
+                    close(devices[i].fifo_fd);
+                }
+                ipc_remove_fifo(devices[i].id, devices[i].type);
+                
+                for (int j = i; j < device_count - 1; j++) {
+                    devices[j] = devices[j + 1];
+                }
+                device_count--;
+                break;
+            }
+        }
+    }
 }
 
 static int read_line(char *buffer, size_t size) {
@@ -89,11 +115,11 @@ static void devices_list(void) {
     else {
         for (int i = 0; i < device_count; i++)
         {
-            printf("%d --> Id=%d, Pid=%d, Type=%s ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+            printf("%d --> Id=%d, Pid=%d, Type=%s, ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
             if(devices[i].parent_id == -1){
-                printf("[Linked: NO]\n");
+                printf("Linked: NO\n");
             } else {
-                printf("[Linked to ID: %d]\n", devices[i].parent_id);
+                printf("Linked to ID: %d\n", devices[i].parent_id);
             }
         }
         printf("\n");
@@ -274,6 +300,8 @@ static void remove_device_from_array(int id) {
         close(devices[index].fifo_fd);
     }
 
+    ipc_remove_fifo(devices[index].id, devices[index].type);
+
     for (int i = index; i < device_count - 1; i++) {
         devices[i] = devices[i + 1];
     }
@@ -294,7 +322,6 @@ static void remove_children_from_hub(int parent_id) {
             i--;
         }
     }
-    printf("All devices are removed from hub\n");
 }
 
 static void remove_device(int id) {
@@ -302,6 +329,11 @@ static void remove_device(int id) {
     if (index == -1) {
         printf("No device with this Id.\n\n");
         return;
+    }
+
+    //controllo se un dispositivo è collegato ad un altro device
+    if (devices[index].parent_id != -1) {
+        unlink_device(id, devices[index].parent_id);
     }
 
     DeviceType type = devices[index].type;
@@ -316,7 +348,10 @@ static void remove_device(int id) {
     } else {
         kill(pid, SIGKILL);
     }
-    usleep(100000);
+    
+    //attesa bloccante
+    int status;
+    waitpid(pid, &status, 0);
 
     //Caso hub
     if (type == DEVICE_HUB) {
@@ -324,8 +359,8 @@ static void remove_device(int id) {
     }
 
     remove_device_from_array(id);
-
-    printf("Device ID: %d is removed\n", id);
+    printf("Device ID: %d is removed\n\n", id);
+    fflush(stdout);
 
 }
 static bool switch_check(char *tokens[], int count) {
@@ -397,7 +432,20 @@ static void commands(void) {
 void controller_run(void) {
 
     //Ctrl+C
-    signal(SIGINT, handle_sigint);
+    struct sigaction sa;
+    sa.sa_handler = handle_sigint;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, NULL);
+
+
+    //SIGCHLD
+    struct sigaction sa_child;
+    sa_child.sa_handler = handle_sigchld;
+    sigemptyset(&sa_child.sa_mask);
+    sa_child.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+    sigaction(SIGCHLD, &sa_child, NULL);
+
 
 
     char buffer[MAX_CMD_LEN];  

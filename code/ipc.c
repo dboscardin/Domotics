@@ -13,7 +13,8 @@ const char *names[] = {"controller", "hub", "timer", "bulb", "window", "fridge"}
 
 int ipc_create_fifo(int id, DeviceType type) {
     char path_name[64];
-    sprintf(path_name, "/tmp/domotica_%s_%d", names[type], id);
+    sprintf(path_name, "/tmp/domotica_%s_%d.fifo", names[type], id);
+    unlink(path_name); //elimina eventuali vecchie fifo 
     int result = mkfifo(path_name, PERMS);
     if(result == -1) perror("mkfifo");
     return result;
@@ -21,8 +22,8 @@ int ipc_create_fifo(int id, DeviceType type) {
 
 int ipc_open_for_listening(int id, DeviceType type) {
     char path_name[64];
-    sprintf(path_name, "/tmp/domotica_%s_%d", names[type], id);
-    int fd = open(path_name,  O_RDONLY | O_NONBLOCK);
+    sprintf(path_name, "/tmp/domotica_%s_%d.fifo", names[type], id);
+    int fd = open(path_name,  O_RDWR | O_NONBLOCK);
     if(fd == -1) perror("open");
     
     return fd;
@@ -30,8 +31,8 @@ int ipc_open_for_listening(int id, DeviceType type) {
 
 int ipc_open_for_writing(int id, DeviceType type) {
     char path_name[64];
-    sprintf(path_name, "/tmp/domotica_%s_%d", names[type], id);
-    int fd = open(path_name,  O_WRONLY);
+    sprintf(path_name, "/tmp/domotica_%s_%d.fifo", names[type], id);
+    int fd = open(path_name,  O_WRONLY | O_NONBLOCK);
     if(fd == -1) perror("open");
 
     return fd;
@@ -41,7 +42,9 @@ int ipc_read_line(int fd, char *buffer, size_t size) {
     ssize_t n = read(fd, buffer, size - 1);
     
     if (n > 0) {
-        buffer[n] = '\0'; 
+        buffer[n] = '\0';
+        // Rimuove il carattere '\n' o '\r' finale
+        buffer[strcspn(buffer, "\r\n")] = '\0'; 
     } else {
         //se n <= 0 azzeriamo il buffer
         buffer[0] = '\0';
@@ -56,4 +59,10 @@ int ipc_send_message(int fd, const char *message) {
     if (n == -1) perror("write");
 
     return n;
+}
+
+void ipc_remove_fifo(int id, DeviceType type){
+    char path_name[64];
+    sprintf(path_name, "/tmp/domotica_%s_%d.fifo", names[type], id);
+    unlink(path_name);
 }
