@@ -24,10 +24,10 @@ $(TARGET): $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-#per partire da uno stato pulito
+#per partire da uno stato pulito e restituire eventuali errori
 clean:
 	rm -f $(OBJS) $(TARGET)
-	rm -f /tmp/domotica_*
+	rm -f /tmp/domotica_* 2>/dev/null || true
 #prima compila se serve, poi esegue il programma
 run: build
 	./$(TARGET)
