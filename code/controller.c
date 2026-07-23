@@ -74,6 +74,31 @@ static void handle_sigint(int sig) {
     exit(0);
 }
 
+// Handler del segnale SIGCHLD quando un device viene eliminato al di fuori del programma
+static void handle_sigchld(int sig) {
+    (void)sig;
+    int status;
+    pid_t pid;
+
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        // Cerco il dispositivo con questo PID e lo rimuovo dall'array
+        for (int i = 0; i < device_count; i++) {
+            if (devices[i].pid == pid) {
+                if (devices[i].fifo_fd != -1) {
+                    close(devices[i].fifo_fd);
+                }
+                ipc_remove_fifo(devices[i].id, devices[i].type);
+                
+                for (int j = i; j < device_count - 1; j++) {
+                    devices[j] = devices[j + 1];
+                }
+                device_count--;
+                break;
+            }
+        }
+    }
+}
+
 static int read_line(char *buffer, size_t size) {
     if(fgets(buffer, size, stdin) == NULL) {
         return 0;
@@ -90,11 +115,11 @@ static void devices_list(void) {
     else {
         for (int i = 0; i < device_count; i++)
         {
-            printf("%d --> Id=%d, Pid=%d, Type=%s ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+            printf("%d --> Id=%d, Pid=%d, Type=%s, ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
             if(devices[i].parent_id == -1){
-                printf("[Linked: NO]\n");
+                printf("Linked: NO\n");
             } else {
-                printf("[Linked to ID: %d]\n", devices[i].parent_id);
+                printf("Linked to ID: %d\n", devices[i].parent_id);
             }
         }
         printf("\n");
@@ -297,7 +322,6 @@ static void remove_children_from_hub(int parent_id) {
             i--;
         }
     }
-    printf("All devices are removed from hub\n");
 }
 
 static void remove_device(int id) {
@@ -319,8 +343,10 @@ static void remove_device(int id) {
     } else {
         kill(pid, SIGKILL);
     }
-    usleep(100000);
-    waitpid(pid, NULL, WNOHANG);
+    
+    //attesa bloccante
+    int status;
+    waitpid(pid, &status, 0);
 
     //Caso hub
     if (type == DEVICE_HUB) {
@@ -328,8 +354,8 @@ static void remove_device(int id) {
     }
 
     remove_device_from_array(id);
-
-    printf("Device ID: %d is removed\n", id);
+    printf("Device ID: %d is removed\n\n", id);
+    fflush(stdout);
 
 }
 static bool switch_check(char *tokens[], int count) {
@@ -406,6 +432,15 @@ void controller_run(void) {
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, NULL);
+
+
+    //SIGCHLD
+    struct sigaction sa_child;
+    sa_child.sa_handler = handle_sigchld;
+    sigemptyset(&sa_child.sa_mask);
+    sa_child.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+    sigaction(SIGCHLD, &sa_child, NULL);
+
 
 
     char buffer[MAX_CMD_LEN];  

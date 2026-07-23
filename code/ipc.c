@@ -32,7 +32,7 @@ int ipc_open_for_listening(int id, DeviceType type) {
 int ipc_open_for_writing(int id, DeviceType type) {
     char path_name[64];
     sprintf(path_name, "/tmp/domotica_%s_%d.fifo", names[type], id);
-    int fd = open(path_name,  O_WRONLY);
+    int fd = open(path_name,  O_WRONLY | O_NONBLOCK);
     if(fd == -1) perror("open");
 
     return fd;

@@ -78,9 +78,6 @@ void create_hub(int id) {
     HubDevice hub;
     hub_init(&hub, id);
 
-    // Creazione FIFO
-    ipc_create_fifo(hub.id, DEVICE_HUB);
-
     // Apertura FIFO ascolto
     int fd_ascolto = ipc_open_for_listening(hub.id, DEVICE_HUB);
 
@@ -120,7 +117,8 @@ void create_hub(int id) {
             } else if(strncmp(buffer, "DELETE",6) == 0){
 
                 printf("Received DELETE command. Cascading to %d children...\n", hub.num_children);
-                
+                fflush(stdout);
+
                 // Propagazione DELETE a tutti i figli
                 for (int i = 0; i < hub.num_children; i++) {
                     int child_id = hub.children[i].id;
@@ -132,8 +130,14 @@ void create_hub(int id) {
                         close(fd_child);
                     }
                 }
+
+                usleep(60000);
+
+                printf("All child devices have been terminated.\n");
+                printf("Closed Hub ID: %d\n", hub.id);
+                fflush(stdout);
+
                 close(fd_ascolto);
-                printf("Terminating process.\n");
                 exit(0);
             }
 
