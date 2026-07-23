@@ -331,6 +331,11 @@ static void remove_device(int id) {
         return;
     }
 
+    //controllo se un dispositivo è collegato ad un altro device
+    if (devices[index].parent_id != -1) {
+        unlink_device(id, devices[index].parent_id);
+    }
+
     DeviceType type = devices[index].type;
     pid_t pid = devices[index].pid;
 
