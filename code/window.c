@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "window.h"
+#include "ipc.h"
+#include "device.h"
 
 #define BUFFER_SIZE 50
 
@@ -10,6 +12,8 @@ Window create_window(int id) {
         .is_open = false,
         .time = 0
     };
+
+    return window;
 } 
 
 void window_run(Window *window) {

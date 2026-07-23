@@ -60,7 +60,7 @@ static void devices_list(void) {
 }
 
 static void add_device(char* device) {
-    DeviceType type;
+    DeviceType type; 
 
     if(strcmp(device, "bulb") == 0) {
         type = DEVICE_BULB;
@@ -165,6 +165,37 @@ static void remove_device(int id) {
 
     printf("Device id=%d removed successfully.\n", id);
 }
+static bool switch_check(char *tokens[], int count) {
+    //check array size
+    if(count != 4) {
+        return false;
+    } 
+    //check if it's  valid ID
+    int id = parse_id(tokens[1]);
+    if(id == -1) {
+        return false;
+    }
+    //check if it works on a right attribute 
+    char *registers[] = {"power", "time", "is_open", "delay", "perc", "temp", "thermostat"};
+    bool labelFound = false;
+    for(int i = 0; i < sizeof(registers) / sizeof(registers[0]); i++) {
+        if(strcmp(tokens[2], registers[i]) == 0) {
+            labelFound = true;
+        }
+    }
+    if(!labelFound) { 
+        return true;
+    }
+    if(strcmp(tokens[3], "on") == 0 || strcmp(tokens[3], "off") == 0 ) {
+        return true;
+    }
+    char *endptr;
+    //tries to convert in int
+    strtol(tokens[3], &endptr, 10);
+
+    //se endptr punta alla fine, tutta la stringa era un numero
+    return (*endptr == '\0');
+} 
 
 static void device_info(int id) {
     int index = find_device_by_id(id);
@@ -235,29 +266,11 @@ void controller_run() {
             printf("This feature will be avaliable soon!\n");
         }
         else if(strcmp(tokens[0], "switch") == 0) {
-            bool isCommandOk = true;
-            if(count != 4) {
-                isCommandOk = false;
-            } 
-            int id = parse_id(tokens[1]);
-            if(id == -1) {
-                isCommandOk = false;
-            }
-            char *registers[] = {"power", "time", "is_open", "delay", "perc", "temp", "thermostat"};
-            bool labelFound = false;
-            for(int i = 0; i < sizeof(registers); i++) {
-                if(strcomp(tokens[2], registers[i]))
-                    labelFound = true;
-            }
-            if(!labelFound) {
-                isCommandOk = false;
-            }
-
-            /*if(isCommandOk) {
-                switchDevice(int id, char *label, bool pos);
+            if(switch_check(tokens, count)) {
+                printf("funziona");
             } else {
-                printf("Invalid command. Structure should be: switch <id> <label> <pos>. \n");
-            }*/
+                printf("funziona. non valida");
+            }
         }
         else if(strcmp(tokens[0], "info") == 0) {
             if(count < 2) {

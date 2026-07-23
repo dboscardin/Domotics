@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "fridge.h"
+#include "ipc.h"
+#include "device.h"
 
 #define BUFFER_SIZE 50
 
@@ -14,6 +16,8 @@ Fridge create_fridge(int id) {
         .temp = 6,
         .thermostat = 6 
     };
+
+    return fridge;
 }
 
 void fridge_run(Fridge *fridge) {
