@@ -9,8 +9,10 @@ typedef struct {
     int time;
 } Bulb;
 
-Bulb create_bulb(int id);
+Bulb create_bulb_struct(int id);
 
 void bulb_run(Bulb *bulb);
+
+void create_bulb(int id);
 
 #endif

@@ -12,6 +12,7 @@
 #include "window.h"
 #include "fridge.h"
 #include "ipc.h"
+#include "hub.h"
 
 #define MAX_CMD_LEN 50
 #define MAX_DEVICES 50
@@ -24,6 +25,17 @@ static int curr_id = 0;         //assegna un id che non decrementa all'eliminazi
 
 static void devices_list(void);
 static void add_device(char* device);
+static int parse_id(const char *charId);
+static int find_device_by_id(int id);
+static void link_devices(int child_id, int hub_id);
+static void remove_device(int id);
+static void device_info(int id);
+static void commands(void);
+static void cleanup_all_devices(void);
+static void handle_sigint(int sig);
+static void unlink_device(int child_id,int hub_id);
+static void remove_device_from_array(int id);
+static void remove_children_from_hub(int parent_id);
 
 static const char *device_type_to_string(DeviceType type) {
     switch (type) {
@@ -35,6 +47,26 @@ static const char *device_type_to_string(DeviceType type) {
         case DEVICE_TIMER:      return "Timer";
         default:                return "Unknown";
     }
+}
+
+// Funzione per terminare tutti i processi figli
+static void cleanup_all_devices(void) {
+    for (int i = 0; i < device_count; i++) {
+        if (devices[i].fifo_fd != -1) {
+            close(devices[i].fifo_fd);
+        }
+        kill(devices[i].pid, SIGTERM);
+        waitpid(devices[i].pid, NULL, 0);
+    }
+    device_count = 0;
+}
+
+// Gestione della chiusura tramite Ctrl+C
+static void handle_sigint(int sig) {
+    (void)sig;
+    printf("\nInterrupted. Terminating all background devices...\n");
+    cleanup_all_devices();
+    exit(0);
 }
 
 static int read_line(char *buffer, size_t size) {
@@ -53,7 +85,12 @@ static void devices_list(void) {
     else {
         for (int i = 0; i < device_count; i++)
         {
-            printf("%d --> Id=%d, Pid=%d, Type=%s\n", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+            printf("%d --> Id=%d, Pid=%d, Type=%s ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+            if(devices[i].parent_id == -1){
+                printf("[Linked: NO]\n");
+            } else {
+                printf("[Linked to ID: %d]\n", devices[i].parent_id);
+            }
         }
         printf("\n");
     }
@@ -70,6 +107,9 @@ static void add_device(char* device) {
     }
     else if(strcmp(device, "fridge") == 0) {
         type = DEVICE_FRIDGE;
+    }
+    else if(strcmp(device, "hub") == 0) {
+        type = DEVICE_HUB;
     }
     else {
         printf("Invalid device type.\n");
@@ -93,6 +133,7 @@ static void add_device(char* device) {
     }
     
     if(pid == 0) {
+        signal(SIGINT,SIG_DFL);
         switch (type) {
             case DEVICE_BULB:
                 create_bulb(curr_id);
@@ -102,6 +143,9 @@ static void add_device(char* device) {
                 break;
             case DEVICE_FRIDGE:
                 create_fridge(curr_id);
+                break;
+            case DEVICE_HUB:
+                create_hub(curr_id);
                 break;
             default:
                 _exit(1);
@@ -116,6 +160,9 @@ static void add_device(char* device) {
     devices[device_count].pid = pid;
     devices[device_count].type = type;
     devices[device_count].fifo_fd = wfd;
+    devices[device_count].parent_id = -1;
+
+    usleep(50000); //50ms
 
     printf("%s", device_type_to_string(type));    
     printf(" created successfully!\nid=%d, pid=%d\n", curr_id, pid);
@@ -145,25 +192,141 @@ static int find_device_by_id(int id) {
     return -1;
 }
 
-static void remove_device(int id) {
+static void link_devices(int child_id, int hub_id) {
+    int child_idx = find_device_by_id(child_id);
+    int hub_idx = find_device_by_id(hub_id);
 
-    int index = find_device_by_id(id);
-    if(index == -1) {
-        printf("No device with this Id.\n");
+    if (child_idx == -1) {
+        printf("Error: child device with ID %d does not exist.\n\n", child_id);
         return;
     }
 
-    kill(devices[index].pid, SIGTERM);
-    waitpid(devices[index].pid, NULL, 0);
-
-    for (int i = index; i < device_count -1; i++)
-    {
-        devices[i] = devices[i + 1];
+    if (hub_idx == -1) {
+        printf("Error: Hub with ID %d does not exist.\n\n", hub_id);
+        return;
     }
 
-    device_count--;
+    if (devices[hub_idx].type != DEVICE_HUB) {
+        printf("Error: device ID %d is not a Hub.\n\n", hub_id);
+        return;
+    }
 
-    printf("Device id=%d removed successfully.\n", id);
+    printf("Link request sent: Device %d -> Hub %d\n", child_id, hub_id);
+    fflush(stdout);
+
+    //invia messaggio all'hub. tramite fifo
+    char msg[64];
+    snprintf(msg, sizeof(msg), "LINK_CHILD %d %d", child_id, devices[child_idx].type);
+    int fd = ipc_open_for_writing(hub_id, DEVICE_HUB);
+    if (fd != -1) {
+        ipc_send_message(fd, msg);
+        close(fd);
+        devices[child_idx].parent_id = hub_id;
+
+        usleep(50000); //50ms
+
+    } else {
+        printf("Error: failed to connect to Hub %d FIFO.\n\n", hub_id);
+    }
+}
+
+static void unlink_device(int child_id,int hub_id){
+    int child_idx = find_device_by_id(child_id);
+    int hub_idx = find_device_by_id(hub_id);
+
+    if (child_idx == -1) {
+        printf("Error: child device with ID %d does not exist.\n\n", child_id);
+        return;
+    }
+
+    if (hub_idx == -1) {
+        printf("Error: Hub with ID %d does not exist.\n\n", hub_id);
+        return;
+    }
+
+    if (devices[hub_idx].type != DEVICE_HUB) {
+        printf("Error: device ID %d is not a Hub.\n\n", hub_id);
+        return;
+    }
+
+    printf("Unlink request sent: Device %d from Hub %d\n", child_id, hub_id);
+    fflush(stdout);
+
+    char msg[64];
+    snprintf(msg, sizeof(msg), "UNLINK_CHILD %d", child_id);
+    int fd = ipc_open_for_writing(hub_id, DEVICE_HUB);
+    if (fd != -1) {
+        ipc_send_message(fd, msg);
+        close(fd);
+        devices[child_idx].parent_id = -1;
+        usleep(50000); // 50ms
+    } else {
+        printf("Error: failed to connect to Hub %d FIFO.\n\n", hub_id);
+    }
+}
+
+//rimuove il device dall'array devices
+static void remove_device_from_array(int id) {
+    int index = find_device_by_id(id);
+    if (index == -1) return;
+
+    if (devices[index].fifo_fd != -1) {
+        close(devices[index].fifo_fd);
+    }
+
+    for (int i = index; i < device_count - 1; i++) {
+        devices[i] = devices[i + 1];
+    }
+    device_count--;
+}
+
+// Rimuove ricorsivamente i figli associati a un hub
+static void remove_children_from_hub(int parent_id) {
+    for (int i = 0; i < device_count; i++) {
+        if (devices[i].parent_id == parent_id) {
+            int child_id = devices[i].id;
+            
+            if (devices[i].type == DEVICE_HUB) {
+                remove_children_from_hub(child_id);
+            }
+            
+            remove_device_from_array(child_id);
+            i--;
+        }
+    }
+    printf("All devices are removed from hub\n");
+}
+
+static void remove_device(int id) {
+    int index = find_device_by_id(id);
+    if (index == -1) {
+        printf("No device with this Id.\n\n");
+        return;
+    }
+
+    DeviceType type = devices[index].type;
+    pid_t pid = devices[index].pid;
+
+    // Invio DELETE tramite fifo
+    char msg[] = "DELETE";
+    int fd = ipc_open_for_writing(id, type);
+    if (fd != -1) {
+        ipc_send_message(fd, msg);
+        close(fd);
+    } else {
+        kill(pid, SIGKILL);
+    }
+    usleep(100000);
+
+    //Caso hub
+    if (type == DEVICE_HUB) {
+        remove_children_from_hub(id);
+    }
+
+    remove_device_from_array(id);
+
+    printf("Device ID: %d is removed\n", id);
+
 }
 static bool switch_check(char *tokens[], int count) {
     //check array size
@@ -202,17 +365,23 @@ static void device_info(int id) {
     printf("%d --> Id=%d, Pid=%d, Type=%s\n", (index + 1), devices[index].id, devices[index].pid, device_type_to_string(devices[index].type));
 }
 
-static void commands() {
+static void commands(void) {
     printf("Commands list:\n");
     printf("list: Lists all devices.\n");
     printf("add <device>: Spawns a new device in the house. (Max 50 devices)\n");
     printf("del <id>: Delete an existing device.\n");
     printf("link <id1> to <id2>: id1 will be controlled by id2.\n");
+    printf("unlink <id1> from <id2>: Unlinks id1 from hub id2.\n");
     printf("switch <id> <label> <pos>: Sets the switch label of device id to position pos.\n");
     printf("info <id>: Displays the complete details of the device\n");
     printf("quit: To quit the program.\n");
 }
-void controller_run() {
+void controller_run(void) {
+
+    //Ctrl+C
+    signal(SIGINT, handle_sigint);
+
+
     char buffer[MAX_CMD_LEN];  
 
     printf("What do you want to do?\n");
@@ -233,6 +402,11 @@ void controller_run() {
             tokens[count] = currToken;
             count++;
             currToken = strtok(NULL, " ");
+        }
+
+        //evita il crash se l'utente preme invio senza scrivere nulla
+        if (count == 0) {
+            continue;
         }
 
         //switch non si può fare perché non funziona con le stringhe (solo numeri e char)
@@ -260,10 +434,31 @@ void controller_run() {
             }
         }
         else if(strcmp(tokens[0], "link") == 0) {
-            if(count != 4) {
-                printf("Invalid command. Structure should be: link <id1> to <id2>. \n");
+            if (count < 4 || strcmp(tokens[2], "to") != 0) {
+                printf("Invalid command format. Use: link <id1> to <id2>\n\n");
+            } else {
+                int child_id = parse_id(tokens[1]);
+                int hub_id = parse_id(tokens[3]);
+
+                if (child_id != -1 && hub_id != -1) {
+                    link_devices(child_id, hub_id);
+                }
             }
-            printf("This feature will be avaliable soon!\n");
+        }
+        else if(strcmp(tokens[0], "unlink") == 0){
+            int child_id = -1, hub_id = -1;
+
+            if (count == 4 && strcmp(tokens[2], "from") == 0) {
+                child_id = parse_id(tokens[1]);
+                hub_id = parse_id(tokens[3]);
+            }
+            else {
+                printf("Invalid command format. Use: unlink <id1> from <id2>\n\n");
+            }
+
+            if (child_id != -1 && hub_id != -1) {
+                unlink_device(child_id, hub_id);
+            }
         }
         else if(strcmp(tokens[0], "switch") == 0) {
             if(switch_check(tokens, count)) {
@@ -272,6 +467,7 @@ void controller_run() {
                 printf("funziona. non valida");
             }
         }
+
         else if(strcmp(tokens[0], "info") == 0) {
             if(count < 2) {
                 printf("Invalid command. Device id is missing. \n");
@@ -290,11 +486,12 @@ void controller_run() {
         }
         else if(strcmp(tokens[0], "quit") == 0) {
             printf("Exit...\n\n");
+            cleanup_all_devices();
             return;
         }
         else {
             printf("Invalid command.\n");
         }
-    }
-
+        
+    }   
 }
