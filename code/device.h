@@ -11,7 +11,8 @@ typedef enum {
     DEVICE_TIMER,
     DEVICE_BULB,
     DEVICE_WINDOW,
-    DEVICE_FRIDGE
+    DEVICE_FRIDGE,
+    DEVICE_TIMER
 } DeviceType;
 
 typedef struct {

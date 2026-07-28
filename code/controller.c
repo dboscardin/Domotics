@@ -141,6 +141,10 @@ static void add_device(char* device) {
     else if(strcmp(device, "hub") == 0) {
         type = DEVICE_HUB;
     }
+    else if (strcmp(device, "timer") == 0) {
+        type = DEVICE_TIMER;
+
+    }
     else {
         printf("Invalid device type.\n");
         return;
@@ -176,6 +180,9 @@ static void add_device(char* device) {
                 break;
             case DEVICE_HUB:
                 create_hub(curr_id);
+                break;
+            case DEVICE_TIMER:
+                create_timer(curr_id);
                 break;
             default:
                 _exit(1);
@@ -232,8 +239,8 @@ static void link_devices(int child_id, int hub_id) {
         return;
     }
 
-    if (devices[hub_idx].type != DEVICE_HUB) {
-        printf("Error: device ID %d is not a Hub.\n\n", hub_id);
+    if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER) {
+        printf("Error: device ID %d is not a Hub or Timer.\n\n", hub_id);
         return;
     }
 
@@ -270,8 +277,8 @@ static void unlink_device(int child_id,int hub_id){
         return;
     }
 
-    if (devices[hub_idx].type != DEVICE_HUB) {
-        printf("Error: device ID %d is not a Hub.\n\n", hub_id);
+    if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER) {
+        printf("Error: device ID %d is not a Hub or Timer.\n\n", hub_id);
         return;
     }
 
