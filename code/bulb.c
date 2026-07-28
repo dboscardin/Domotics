@@ -47,6 +47,14 @@ void bulb_run(Bulb *bulb) {
                 }
                 printf("[Bulb %d] Power set to: %s\n", bulb->id, bulb->power ? "ON" : "OFF");
             }
+            else if(strncmp(buffer , "INFO", 4) == 0){
+                printf("-------- Bulb Details ------\n");
+                printf("ID: %d\n", bulb->id);
+                printf("State: %s\n", bulb->power ? "On" : "Off");
+                printf("Total usage time: %d seconds\n", bulb->time);
+                printf("----------------------------\n\n");
+                fflush(stdout);
+            }
         } else {
             usleep(50000); // il processo consuma meno risorse
         }

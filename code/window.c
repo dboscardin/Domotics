@@ -32,6 +32,14 @@ void window_run(Window *window) {
                 close(fd);
                 exit(0);
             }
+            else if(strncmp(buffer , "INFO", 4) == 0){
+                printf("------- Window Details -----\n");
+                printf("ID: %d\n", window->id);
+                printf("State: %s\n", window->is_open ? "Open" : "Closed");
+                printf("Time left open: %d s\n", window->time);
+                printf("----------------------------\n\n");
+                fflush(stdout);
+            }
         } else {
         usleep(50000); // il processo consuma meno risorse
         }

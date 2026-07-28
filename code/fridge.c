@@ -36,6 +36,18 @@ void fridge_run(Fridge *fridge) {
                 close(fd);
                 exit(0);
             }
+            else if(strncmp(buffer , "INFO", 4) == 0){
+                printf("------- Fridge Details -----\n");
+                printf("ID: %d\n", fridge->id);
+                printf("Door State: %s\n", fridge->is_open ? "Open" : "Closed");
+                printf("Time left open: %d s\n", fridge->time);
+                printf("Delay: %d s\n", fridge->delay);
+                printf("Fill percentage: %d%%\n", fridge->perc);
+                printf("Current Temp: %d °C\n", fridge->temp);
+                printf("Thermostat: %d °C\n", fridge->thermostat);
+                printf("----------------------------\n\n");
+                fflush(stdout);
+            }
         } else {
             usleep(50000); // il processo consuma meno risorse
         }
