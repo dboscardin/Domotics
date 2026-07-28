@@ -398,7 +398,7 @@ static bool switch_check(char *tokens[], int count) {
 static void switch_device(char *tokens[]) {
     int id = parse_id(tokens[1]);
     int index = find_device_by_id(id);
-    if(index = -1) return;
+    if(index == -1) return;
 
     char message[MAX_MSG_LEN];
     snprintf(message, sizeof(message), "SWITCH %s %s", tokens[2], tokens[3]);
@@ -407,7 +407,7 @@ static void switch_device(char *tokens[]) {
     if(fd != -1) {
         ipc_send_message(fd, message);
         close(fd);
-        printf("Command sent to Device %d: SWICTH %s % s.\n", id, tokens[2], tokens[3]);
+        printf("Command sent to Device %d: SWICTH %s %s.\n", id, tokens[2], tokens[3]);
     } else {
         printf("Error: Failed to communicate with Device %d.\n", id);
     }
@@ -415,7 +415,23 @@ static void switch_device(char *tokens[]) {
 
 static void device_info(int id) {
     int index = find_device_by_id(id);
-    printf("%d --> Id=%d, Pid=%d, Type=%s\n", (index + 1), devices[index].id, devices[index].pid, device_type_to_string(devices[index].type));
+    if (index == -1){
+        printf("Device ID: %d not found\n\n", id);
+        return;
+    }
+
+    int fd = ipc_open_for_writing(id, device[index].type);
+    if (fd != -1 ){
+        ipc_send_message(fd, "INFO");
+        close(fd);
+
+        usleep(100000);
+    } else {
+        printf("Error: failed to communicate with device ID: %d\n\n ", id);
+    }
+
+
+
 }
 
 static void commands(void) {
