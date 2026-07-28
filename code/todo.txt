@@ -1,8 +1,11 @@
-1. switch and ilnk commands
-2. hub e timer
+1. switch and link commands
+2. hub✅
 3. sistemare info che deve dire anche lo stato (off/on)
-4. sistemare terminazione figli 
-5. unlink?
+4. sistemare terminazione figli ✅
+5. unlink? ✅
 
-6.controllare se i processi vengono uccisi
-7. nel info di un device si può vedere se è linkato ad altro?
+6.controllare se i processi vengono uccisi ✅
+
+7. sistemare hub per gestire i casi limite
+8. aggiungere timer
+9. sistemare script per gli switch
