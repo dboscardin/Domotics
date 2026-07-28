@@ -427,12 +427,12 @@ static void device_info(int id) {
         return;
     }
 
-    int fd = ipc_open_for_writing(id, devices[index].type);
+    int fd = ipc_open_for_writing(id, device[index].type);
     if (fd != -1 ){
         ipc_send_message(fd, "INFO");
         close(fd);
 
-        usleep(1500000);
+        usleep(100000);
     } else {
         printf("Error: failed to communicate with device ID: %d\n\n ", id);
     }
