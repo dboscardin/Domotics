@@ -5,3 +5,4 @@
 5. unlink?
 
 6.controllare se i processi vengono uccisi
+7. nel info di un device si può vedere se è linkato ad altro?
