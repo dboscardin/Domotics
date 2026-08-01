@@ -140,6 +140,34 @@ void create_hub(int id) {
                 close(fd_ascolto);
                 exit(0);
             }
+            else if (strncmp(buffer, "INFO", 4) == 0) {
+                printf("-------- Hub Details -------\n");
+                printf("ID: %d\n", hub.id);
+    
+                if (hub.parent_id == -1) {
+                    printf("Linked to Hub: NO\n");
+                } else {
+                    printf("Linked to Hub ID: %d\n", hub.parent_id);
+                }
+
+                printf("Connected devices count: %d\n", hub.num_children);
+    
+                if (hub.num_children == 0) {
+                    printf("  (No devices linked to this Hub)\n");
+                } else {
+                    printf("Linked Devices:\n");
+                    for (int i = 0; i < hub.num_children; i++) {
+                        printf("  %d) ID: %d | Type: %s\n", 
+                               i + 1, 
+                               hub.children[i].id, 
+                               get_device_type_name(hub.children[i].type));
+                    }
+                }
+                printf("----------------------------\n\n");
+                fflush(stdout);
+
+            }
+            
 
         } else {
             usleep(50000); // 50ms
