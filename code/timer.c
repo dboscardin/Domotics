@@ -76,8 +76,14 @@ void create_timer(int id) {
                     }
                     printf("----------------------------\n\n");
                     fflush(stdout);
+            }
 
-
+            //DELETE
+            else if(strncmp(buffer, "DELETE", 6) == 0){
+                printf("Deleted Timer ID: %d\n ", timer.id);
+                fflush(stdout);
+                close(fd_ascolto);
+                exit(0);
             }
 
         } else {

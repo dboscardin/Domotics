@@ -29,6 +29,7 @@ void window_run(Window *window) {
             //delete
             if (strncmp(buffer, "DELETE",6) == 0){
                 printf("Closed Window ID:%d\n", window->id);
+                fflush(stdout);
                 close(fd);
                 exit(0);
             }
@@ -38,7 +39,7 @@ void window_run(Window *window) {
                 printf("State: %s\n", window->is_open ? "Open" : "Closed");
                 printf("Time left open: %d s\n", window->time);
                 printf("----------------------------\n\n");
-                fflush(stdout);
+                fflush(stdout); 
             }
         } else {
         usleep(50000); // il processo consuma meno risorse
