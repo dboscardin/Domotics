@@ -15,6 +15,7 @@
 #include "ipc.h"
 #include "hub.h"
 #include "protocol.h"
+#include "timer.h"
 
 #define MAX_CMD_LEN 50
 #define MAX_DEVICES 50
@@ -383,7 +384,7 @@ static bool switch_check(char *tokens[], int count) {
     //check if it works on a right attribute 
     char *registers[] = {"power", "time", "is_open", "delay", "perc", "temp", "thermostat"};
     bool labelFound = false;
-    for(int i = 0; i < sizeof(registers) / sizeof(registers[0]); i++) {
+    for(size_t i = 0; i < sizeof(registers) / sizeof(registers[0]); i++) {
         if(strcmp(tokens[2], registers[i]) == 0) {
             labelFound = true;
         }
@@ -427,7 +428,7 @@ static void device_info(int id) {
         return;
     }
 
-    int fd = ipc_open_for_writing(id, device[index].type);
+    int fd = ipc_open_for_writing(id, devices[index].type);
     if (fd != -1 ){
         ipc_send_message(fd, "INFO");
         close(fd);

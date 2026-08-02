@@ -11,8 +11,7 @@ typedef enum {
     DEVICE_TIMER,
     DEVICE_BULB,
     DEVICE_WINDOW,
-    DEVICE_FRIDGE,
-    DEVICE_TIMER
+    DEVICE_FRIDGE
 } DeviceType;
 
 typedef struct {
@@ -22,5 +21,11 @@ typedef struct {
     int fifo_fd;
     int parent_id; // -1 se non è collegato a nulla
 } DeviceInfo;
+
+//per hub e timer
+typedef struct {
+    int id;
+    DeviceType type;
+} ChildDevice;
 
 #endif

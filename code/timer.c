@@ -22,17 +22,18 @@ static const char *get_device_type_name(DeviceType type) {
     }
 }
 
-void timer_init(TimerDevice *timer, int id){
+void timer_init(TimerDevice *timer, int id) {
     timer->id = id;
-    timer->target_id = -1;
-    timer->target_type = DEVICE_BULB;
-    timer->time_seconds = 0;
+    timer->parent_id = -1;
+    timer->num_children = 0;
+    timer->timer_delay = 0;
+    timer->time_left = 0;
     timer->is_active = false;
-
 }
 
-void create_timer(int id){
+void create_timer(int id) {
+    TimerDevice timer;
+    timer_init(&timer, id);
 
-
-
+    exit(0);
 }
