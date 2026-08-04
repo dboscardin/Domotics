@@ -40,6 +40,7 @@ static void commands(void);
 static void cleanup_all_devices(void);
 static void handle_sigint(int sig);
 static void unlink_device(int child_id,int hub_id);
+static void unlink_children_from_timer(int parent_id);
 static void remove_device_from_array(int id);
 static void remove_children_from_hub(int parent_id);
 
@@ -310,6 +311,14 @@ static void unlink_device(int child_id,int hub_id){
     }
 }
 
+static void unlink_children_from_timer(int parent_id){
+    for(int i=0; i<device_count; i++){
+        if(devices[i].parent_id == parent_id){
+            devices[i].parent_id=-1;
+        }
+    }
+}
+
 //rimuove il device dall'array devices
 static void remove_device_from_array(int id) {
     int index = find_device_by_id(id);
@@ -350,6 +359,12 @@ static void remove_device(int id) {
         return;
     }
 
+    //evita race condition
+    sigset_t mask, oldmask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &mask, &oldmask);
+
     if (devices[index].parent_id != -1) {
         unlink_device(id, devices[index].parent_id);
     }
@@ -357,11 +372,15 @@ static void remove_device(int id) {
     DeviceType type = devices[index].type;
     pid_t pid = devices[index].pid;
 
-    //evita race condition
-    sigset_t mask, oldmask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGCHLD);
-    sigprocmask(SIG_BLOCK, &mask, &oldmask);
+    //HUB vengono eliminati anche i figli
+    if (type == DEVICE_HUB) {
+        remove_children_from_hub(id);
+    } 
+    //timer non elimina i figli
+    else if (type == DEVICE_TIMER) {
+        unlink_children_from_timer(id);
+    }
+        
 
     // Invio DELETE
     char msg[] = "DELETE";
@@ -376,10 +395,6 @@ static void remove_device(int id) {
     // Attesa sincrona
     int status;
     waitpid(pid, &status, 0);
-
-    if (type == DEVICE_HUB || type == DEVICE_TIMER) {
-        remove_children_from_hub(id);
-    }
 
     remove_device_from_array(id);
     printf("Device ID: %d is removed\n\n", id);
@@ -431,7 +446,7 @@ static void switch_device(char *tokens[]) {
     if(fd != -1) {
         ipc_send_message(fd, message);
         close(fd);
-        printf("Command sent to Device %d: SWICTH %s %s.\n", id, tokens[2], tokens[3]);
+        printf("Command sent to Device %d: SWITCH %s %s.\n", id, tokens[2], tokens[3]);
     } else {
         printf("Error: Failed to communicate with Device %d.\n", id);
     }

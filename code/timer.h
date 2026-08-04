@@ -18,7 +18,9 @@ typedef struct {
 
 
 void timer_init(TimerDevice *timer, int id);
+bool timer_add_child(TimerDevice *timer, int child_id,DeviceType child_type);
 void create_timer(int id);
+
 
 
 #endif

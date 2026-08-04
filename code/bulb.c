@@ -28,7 +28,7 @@ void bulb_run(Bulb *bulb) {
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
-            sleep((rand() % 3) + 1);
+            //sleep((rand() % 3) + 1); TODO sistemare il ritardo
         
             printf("Message recevied: '%s'\n",buffer);
 

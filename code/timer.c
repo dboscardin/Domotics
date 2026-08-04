@@ -31,6 +31,30 @@ void timer_init(TimerDevice *timer, int id) {
     timer->is_active = false;
 }
 
+bool timer_add_child(TimerDevice *timer, int child_id,DeviceType child_type){
+    if(timer->num_children >= MAX_CHILDREN){
+        fprintf(stderr, "Error: max children limit reached for Timer %d\n", timer->id);
+        return false;
+    }
+
+    for(int i=0; i<timer->num_children; i++){
+        if(timer->children[i].id == child_id){
+            printf("Child ID %d is already linked to Timer %d.\n", child_id, timer->id);
+            return true;
+        }
+    }
+
+    timer->children[timer->num_children].id = child_id;
+    timer->children[timer->num_children].type = child_type;
+    timer->num_children++;
+
+    printf("Timer %d linked child ID: %d (%s)\n", timer->id, child_id, get_device_type_name(child_type));
+    fflush(stdout);
+    return true;
+
+}
+
+
 void create_timer(int id) {
     TimerDevice timer;
     timer_init(&timer, id);
@@ -48,10 +72,19 @@ void create_timer(int id) {
 
         if(bytes_letti > 0){
             printf("Message received: '%s'\n", buffer);
-        
+            
+            //LINK
+            if(strncmp(buffer, "LINK_CHILD", 10) == 0){
+                int child_id, child_type_int;
+                if (sscanf(buffer, "LINK_CHILD %d %d", &child_id, &child_type_int) == 2) {
+                    timer_add_child(&timer, child_id, (DeviceType)child_type_int);
+                }
+            }
+
+
 
             //INFO
-            if(strncmp(buffer, "INFO", 4) == 0){
+            else if(strncmp(buffer, "INFO", 4) == 0){
                     printf("-------- Timer Details -----\n");
                     printf("ID: %d\n", timer.id);
                     if (timer.parent_id == -1) {
@@ -81,6 +114,7 @@ void create_timer(int id) {
             //DELETE
             else if(strncmp(buffer, "DELETE", 6) == 0){
                 printf("Deleted Timer ID: %d\n ", timer.id);
+                printf("Timer ID: %d closed successfully.\n", timer.id);
                 fflush(stdout);
                 close(fd_ascolto);
                 exit(0);
