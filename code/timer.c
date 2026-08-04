@@ -149,7 +149,29 @@ void create_timer(int id) {
             }
 
         } else {
-            usleep(50000);
+
+            ticks++;
+            if(ticks >= 20 ){
+                ticks = 0;
+                if(timer.is_active && timer.timer_left > 0){
+                    timer.timer_left--;
+                    if(timer.timer_left == 0){
+                        timer.is_active = false;
+                        printf("\n[Timer %d] countdown expired! Triggering %d children...\n", timer.id, timer.num_children);
+                        fflush(stdout);
+
+                        for(int i=0; i<timer.num_children; i++){
+                            int fd_children = ipc_open_for_writing(timer.children[i].id, timer.children[i].type);
+                            if(fd_children != -1){
+                                ipc_send_message(fd_child, "SWITCH power on");
+                                close(fd_child);
+                            }
+                        }
+                    }
+                }
+            }
+
+            usleep(50000);//50ms
         }
     }
 
