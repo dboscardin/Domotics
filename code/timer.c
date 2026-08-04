@@ -54,6 +54,27 @@ bool timer_add_child(TimerDevice *timer, int child_id,DeviceType child_type){
 
 }
 
+bool timer_remove_child(TimerDevice *timer, int child_id) {
+    int index = -1;
+    for (int i = 0; i < timer->num_children; i++) {
+        if (timer->children[i].id == child_id) {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == -1) return false;
+
+    for (int i = index; i < timer->num_children - 1; i++) {
+        timer->children[i] = timer->children[i + 1];
+    }
+    timer->num_children--;
+
+    printf("Timer %d unlinked child ID: %d\n", timer->id, child_id);
+    fflush(stdout);
+    return true;
+}
+
 
 void create_timer(int id) {
     TimerDevice timer;
@@ -80,7 +101,14 @@ void create_timer(int id) {
                     timer_add_child(&timer, child_id, (DeviceType)child_type_int);
                 }
             }
-
+            
+            // UNLINK
+            else if (strncmp(buffer, "UNLINK_CHILD", 12) == 0) {
+                int child_id;
+                if (sscanf(buffer, "UNLINK_CHILD %d", &child_id) == 1) {
+                    timer_remove_child(&timer, child_id);
+                }
+            }
 
 
             //INFO
