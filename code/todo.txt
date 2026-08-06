@@ -8,3 +8,7 @@
 8. aggiungere timer
 9. sistemare script per gli switch
 10. nel info di un device si può vedere se è linkato ad altro?
+
+
+Importante!!
+fare cambiamenti ad alcune cose
