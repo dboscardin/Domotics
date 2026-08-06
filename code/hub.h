@@ -7,12 +7,6 @@
 
 #define MAX_CHILDREN 50
 
-// Struttura per tracciare i figli
-typedef struct {
-    int id;
-    DeviceType type;
-} ChildDevice;
-
 // Struttura dell'Hub
 typedef struct {
     int id;

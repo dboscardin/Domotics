@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "fridge.h"
 #include "ipc.h"
 #include "device.h"
@@ -22,11 +23,17 @@ Fridge create_fridge_struct(int id) {
 }
 
 void fridge_run(Fridge *fridge) {
+
+    srand(time(NULL) ^ getpid());
+
     int fd = ipc_open_for_listening(fridge->id, DEVICE_FRIDGE);
     char buffer[BUFFER_SIZE];
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
+
+            //delay
+            ipc_simulate_delay();
         
             printf("Message recevied: '%s'\n",buffer);
 

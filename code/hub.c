@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "hub.h"
 #include "ipc.h"
@@ -75,6 +76,9 @@ bool hub_remove_child(HubDevice *hub, int child_id){
 }
 
 void create_hub(int id) {
+
+    srand(time(NULL) ^ getpid());
+
     HubDevice hub;
     hub_init(&hub, id);
 
@@ -93,6 +97,10 @@ void create_hub(int id) {
         int bytes_letti = ipc_read_line(fd_ascolto, buffer, sizeof(buffer));
 
         if (bytes_letti > 0) {
+
+            //delay
+            ipc_simulate_delay();
+
             printf("Message received: '%s'\n", buffer);
             //link
             if (strncmp(buffer, "LINK_CHILD", 10) == 0) {

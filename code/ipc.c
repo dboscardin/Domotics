@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 #include <sys/stat.h> 
+#include <stdlib.h>
+#include <time.h>
 #include "ipc.h"
 #include "device.h"
 #define PERMS 0666
@@ -65,4 +67,9 @@ void ipc_remove_fifo(int id, DeviceType type){
     char path_name[64];
     sprintf(path_name, "/tmp/domotica_%s_%d.fifo", names[type], id);
     unlink(path_name);
+}
+
+void ipc_simulate_delay(void){
+    int seconds = (rand() % 3) + 1;
+    sleep(seconds);
 }
