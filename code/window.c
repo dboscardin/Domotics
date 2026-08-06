@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "window.h"
 #include "ipc.h"
 #include "device.h"
@@ -18,11 +19,17 @@ Window create_window_struct(int id) {
 } 
 
 void window_run(Window *window) {
+
+    srand(time(NULL) ^ getpid());
+
     int fd = ipc_open_for_listening(window->id, DEVICE_WINDOW);
     char buffer[BUFFER_SIZE];
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
+
+            //delay
+            ipc_simulate_delay();
 
             printf("Message recevied: '%s'\n",buffer);
 

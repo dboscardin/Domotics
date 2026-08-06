@@ -12,8 +12,9 @@ typedef struct {
     ChildDevice children[MAX_CHILDREN];
     int num_children;
     int timer_delay;
-    int timer_left;
+    int time_left;
     bool is_active;
+    bool target_state;
 } TimerDevice;
 
 

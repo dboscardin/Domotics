@@ -14,4 +14,6 @@ int ipc_send_message(int fd, const char *message);
 
 void ipc_remove_fifo(int id, DeviceType type);
 
+void ipc_simulate_delay(void);
+
 #endif

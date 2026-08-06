@@ -338,16 +338,33 @@ static void remove_device_from_array(int id) {
 
 // Rimuove ricorsivamente i figli associati a un hub
 static void remove_children_from_hub(int parent_id) {
-    for (int i = 0; i < device_count; i++) {
+    for (int i = device_count - 1; i >= 0; i--) {
         if (devices[i].parent_id == parent_id) {
             int child_id = devices[i].id;
-            
-            if (devices[i].type == DEVICE_HUB || devices[i].type == DEVICE_TIMER) {
+            DeviceType child_type = devices[i].type;
+            pid_t child_pid = devices[i].pid;
+
+            // Se il figlio è un Hub, elimina ricorsivamente i suoi sotto-figli
+            if (child_type == DEVICE_HUB) {
                 remove_children_from_hub(child_id);
+            } 
+            // Se il figlio è un Timer, svincola solo i suoi figli senza distruggerli
+            else if (child_type == DEVICE_TIMER) {
+                unlink_children_from_timer(child_id);
+            }
+
+            int fd = ipc_open_for_writing(child_id, child_type);
+            if (fd != -1) {
+                ipc_send_message(fd, "DELETE");
+                close(fd);
+            } else {
+                kill(child_pid, SIGKILL);
             }
             
+            waitpid(child_pid, NULL, WNOHANG);
+
+            // Rimuove l'elemento dall'array devices del Controller
             remove_device_from_array(child_id);
-            i--;
         }
     }
 }

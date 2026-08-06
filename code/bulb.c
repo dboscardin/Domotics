@@ -20,15 +20,18 @@ Bulb create_bulb_struct(int id) {
 }
 
 void bulb_run(Bulb *bulb) {
+
+    srand(time(NULL) ^ getpid());
+
     int fd = ipc_open_for_listening(bulb->id, DEVICE_BULB);
     char buffer[BUFFER_SIZE];
 
-    srand(time(NULL));
 
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
-            //sleep((rand() % 3) + 1); TODO sistemare il ritardo
+            //delay
+            ipc_simulate_delay();
         
             printf("Message recevied: '%s'\n",buffer);
 
@@ -46,6 +49,7 @@ void bulb_run(Bulb *bulb) {
                     bulb->power = (strcmp(pos, "on") == 0);
                 }
                 printf("[Bulb %d] Power set to: %s\n", bulb->id, bulb->power ? "ON" : "OFF");
+                fflush(stdout);
             }
             else if(strncmp(buffer , "INFO", 4) == 0){
                 printf("-------- Bulb Details ------\n");

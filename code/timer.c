@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <time.h>
 
 #include "timer.h"
 #include "ipc.h"
@@ -27,8 +28,9 @@ void timer_init(TimerDevice *timer, int id) {
     timer->parent_id = -1;
     timer->num_children = 0;
     timer->timer_delay = 0;
-    timer->timer_left = 0;
+    timer->time_left = 0;
     timer->is_active = false;
+    timer->target_state = true;
 }
 
 bool timer_add_child(TimerDevice *timer, int child_id,DeviceType child_type){
@@ -77,6 +79,9 @@ bool timer_remove_child(TimerDevice *timer, int child_id) {
 
 
 void create_timer(int id) {
+
+    srand(time(NULL) ^ getpid());
+
     TimerDevice timer;
     timer_init(&timer, id);
 
@@ -92,6 +97,10 @@ void create_timer(int id) {
         int bytes_letti = ipc_read_line(fd_ascolto, buffer, sizeof(buffer));
 
         if(bytes_letti > 0){
+
+            //ritardo
+            ipc_simulate_delay();
+
             printf("Message received: '%s'\n", buffer);
             
             //LINK
@@ -115,22 +124,23 @@ void create_timer(int id) {
                 char label[32], pos[32];
                 if (sscanf(buffer, "SWITCH %s %s", label, pos) == 2) {
                     if (strcmp(label, "delay") == 0) {
-                        timer.timer_delay = atoi(pos);//string to int
-                        timer.timer_left = timer.timer_delay;
+                        timer.timer_delay = atoi(pos);
+                        timer.time_left = timer.timer_delay;
                         printf("Timer %d Delay set to %d seconds.\n", timer.id, timer.timer_delay);
                     } 
                     else if (strcmp(label, "power") == 0) {
                         if (strcmp(pos, "on") == 0) {
                             if (timer.timer_delay > 0) {
                                 timer.is_active = true;
-                                timer.timer_left = timer.timer_delay;
-                                printf("Timer %d Started countdown (%d s)\n", timer.id, timer.timer_left);
+                                timer.time_left = timer.timer_delay;
+                                timer.target_state = true;
+                                printf("Timer %d Started countdown (%d s) -> Target state: on\n", timer.id, timer.time_left);
                             } else {
                                 printf("Timer %d Cannot start: delay is 0.\n", timer.id);
                             }
-                        } else {
+                        } else if (strcmp(pos, "off") == 0) {
                             timer.is_active = false;
-                            printf("Timer %d Stopped\n", timer.id);
+                            printf("Timer %d Stopped countdown.\n", timer.id);
                         }
                     }
                 }
@@ -149,7 +159,7 @@ void create_timer(int id) {
                     printf("Delay set: %d s\n", timer.timer_delay);
                     printf("Status: %s\n", timer.is_active ? "Running" : "Stopped");
                     if (timer.is_active) {
-                        printf("Time remaining: %d s\n", timer.timer_left);
+                        printf("Time remaining: %d s\n", timer.time_left);
                     }
                     printf("Connected devices count: %d\n", timer.num_children);
                     if (timer.num_children > 0) {
@@ -175,29 +185,32 @@ void create_timer(int id) {
             }
 
         } else {
-
             ticks++;
-            if(ticks >= 20 ){
+            if (ticks >= 20) {
                 ticks = 0;
-                if(timer.is_active && timer.timer_left > 0){
-                    timer.timer_left--;
-                    if(timer.timer_left == 0){
+                if (timer.is_active && timer.time_left > 0) {
+                    timer.time_left--;
+                    if (timer.time_left == 0) {
                         timer.is_active = false;
-                        printf("\nTimer %d countdown expired! Triggering %d children...\n", timer.id, timer.num_children);
+                        char target_cmd[32];
+                        snprintf(target_cmd, sizeof(target_cmd), "SWITCH power %s", 
+                                 timer.target_state ? "on" : "off");
+
+                        printf("\nTimer %d Sending '%s' to %d children...\n", 
+                               timer.id, target_cmd, timer.num_children);
                         fflush(stdout);
 
-                        for(int i=0; i<timer.num_children; i++){
+                        for (int i = 0; i < timer.num_children; i++) {
                             int fd_child = ipc_open_for_writing(timer.children[i].id, timer.children[i].type);
-                            if(fd_child != -1){
-                                ipc_send_message(fd_child, "SWITCH power on");
+                            if (fd_child != -1) {
+                                ipc_send_message(fd_child, target_cmd);
                                 close(fd_child);
                             }
                         }
                     }
                 }
             }
-
-            usleep(50000);//50ms
+            usleep(50000);
         }
     }
 
