@@ -14,10 +14,11 @@ Importante!!
 fare cambiamenti ad alcune cose:
 
 === 1. INFRASTRUTTURA & CONCORRENZA ===
-[ ] Controller: Sostituire fgets() con select() per leggere contemporaneamente STDIN e FIFO.
-[ ] Controller: Creare FIFO di ACK (Request-Response) per bloccare il prompt finché il figlio non risponde.
+[✅] Controller: Usare pthreads per l'architettura. Il Main Thread ascolta STDIN (fgets), un Listener Thread ascolta la FIFO in background.
+[ ] Controller: Usare sigprocmask per bloccare/gestire in modo sicuro il segnale SIGCHLD nei thread ed evitare race conditions.
+[ ] Controller: Creare FIFO di risposta tramite mkfifo (es. FIFO_CONTROLLER) per ricevere l'esito dei comandi.
 [ ] IPC: Aggiungere ipc_simulate_delay() (1-3s) nei figli, escludendo i comandi INFO e DELETE.
-[ ] IPC: Implementare le macro di protocol.h (es. ERR_DEVICE_NOT_FOUND) per le risposte.
+[ ] IPC: Usare le macro di protocol.h (es. ERR_DEVICE_NOT_FOUND) e inviare la risposta tramite la FIFO del Controller.
 
 === 2. GERARCHIA & ROUTING ===
 [ ] Controller (LINK): Inviare due messaggi IPC (SET_PARENT al figlio, LINK_CHILD al padre).
@@ -34,3 +35,12 @@ fare cambiamenti ad alcune cose:
 [ ] Window: Switch a "molla" (comandi open/close aprono/chiudono ma lo switch torna istantaneamente off).
 [ ] Fridge: Bloccare le modifiche di 'perc' e 'thermostat' da Controller (consentite solo via script).
 [ ] Fridge: Implementare l'auto-chiusura della porta basata sul registro 'delay'.
+
+
+=== 1. INFRASTRUTTURA & CONCORRENZA (Membro 1) ===
+[ ] Controller: Usare pthreads per l'architettura. Il Main Thread ascolta STDIN (fgets), un Listener Thread ascolta la FIFO in background.
+[ ] Controller: Usare sigprocmask per bloccare/gestire in modo sicuro il segnale SIGCHLD nei thread ed evitare race conditions.
+[ ] Controller: Creare FIFO di risposta tramite mkfifo (es. FIFO_CONTROLLER) per ricevere l'esito dei comandi.
+[ ] IPC: Aggiungere ipc_simulate_delay() (1-3s) nei figli, escludendo i comandi INFO e DELETE.
+[ ] IPC: Usare le macro di protocol.h (es. ERR_DEVICE_NOT_FOUND) e inviare la risposta tramite la FIFO del Controller.
+

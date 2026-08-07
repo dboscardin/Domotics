@@ -21,6 +21,7 @@
  
 #define MAX_MSG_LEN 50
 #define FIFO_PATH_FMT "/tmp/domotica_%s_%d.fifo"
+#define FIFO_CONTROLLER "/tmp/domotica_controller_0.fifo"
 
 #define RESP_FORMAT "%d %s"
 #define RESP_FORMAT_NO_PAYLOAD "%d" 

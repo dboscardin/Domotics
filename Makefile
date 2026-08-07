@@ -1,5 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -std=c11 -D_POSIX_C_SOURCE=200809L
+LDLIBS = -lpthread
 
 TARGET = domotics
 SRCS = code/main.c code/controller.c code/bulb.c code/window.c code/fridge.c code/ipc.c code/hub.c code/device.c code/timer.c
@@ -16,7 +17,7 @@ build: $(TARGET)
 # $@ --> target corrente (domotics)
 # $^ --> tutte le dependencies
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 # Compila ogni file .c nel corrispondente .o
 # $< --> prima dependency (main.c)

@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <pthread.h>
+#include <fcntl.h>
 
 #include "controller.h"
 #include "device.h"
@@ -21,6 +23,9 @@
 #define MAX_CMD_LEN 50
 #define MAX_DEVICES 50
 #define MAX_TOKENS 10
+
+//veriabile globale per controllare il ciclo di un thread
+static volatile int running = 1;
 
 static DeviceInfo devices[MAX_DEVICES];
 static int device_count = 0;    //conta dispositivi attuali
@@ -555,6 +560,41 @@ static void commands(void) {
     printf("info <id>: Displays the complete details of the device\n");
     printf("quit: To quit the program.\n");
 }
+
+static void *listener_thread(void *arg){
+
+    (void)arg;
+
+    //apro la fifo in sola lettura/scrittura per evitare il blocco se nessun processo figlio è collegato
+    int controller_fd = open(FIFO_CONTROLLER, O_RDWR);
+    if(controller_fd == -1){
+        perror("Error opening Controller FIFO");
+        pthread_exit(NULL);
+    }
+
+    char ack_buf[MAX_MSG_LEN];
+    while(running){
+
+        //thread in attesa per consumare meno cpu
+        ssize_t n = read(controller_fd, ack_buf, sizeof(ack_buf)-1);
+
+        if(n > 0){
+            ack_buf[n] = 0;
+            ack_buf[strcspn(ack_buf, "\n")] = '\0'; //rimuove newline
+
+            //sovrascivo il prompt domotics con il messaggio e lo riscrivo
+            printf("\r%s\ndomotics> ", ack_buf);
+            fflush(stdout);
+
+        }
+
+    }
+
+    close(controller_fd);
+    return NULL;
+}
+
+
 void controller_run(void) {
 
     //evita la chiusura del controller quando si invia un comando a un device morto
@@ -574,13 +614,22 @@ void controller_run(void) {
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, NULL);
 
+    //thread
+    pthread_t listener_td;
+    if(pthread_create(&listener_td, NULL, listener_thread, NULL) != 0){
+        perror("Failed to create listener thread");
+        exit(1);
+    }
+
 
     char buffer[MAX_CMD_LEN];  
 
     printf("What do you want to do?\n");
-    while(true) {
+    while(running) {
 
         printf("domotics> ");
+        fflush(stdout);
+
 
         if (!read_line(buffer, sizeof(buffer))) {
             printf("Exit...\n\n");
@@ -679,6 +728,17 @@ void controller_run(void) {
         }
         else if(strcmp(tokens[0], "quit") == 0) {
             printf("Exit...\n\n");
+
+            running = 0;//termina il ciclo nel thread e anche qui
+
+            //per far uscire il thread dalla read bloccante gli si manda un byte fittizio
+            int fd = open(FIFO_CONTROLLER, O_WRONLY | O_NONBLOCK);
+            if (fd != -1) { 
+                write(fd, " ", 1); 
+                close(fd); 
+            }
+
+            pthread_join(listener_td, NULL);
             cleanup_all_devices();
             return;
         }
