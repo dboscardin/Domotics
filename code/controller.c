@@ -272,11 +272,6 @@ static void link_devices(int child_id, int hub_id) {
     int child_idx = find_device_by_id(child_id);
     int hub_idx = find_device_by_id(hub_id);
 
-    if(creates_cycle(child_id, hub_id)) {
-        printf("Error: this link would create a cycle in the hierarchy.\n\n");
-        return;
-    }
-
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
         return;
@@ -292,9 +287,16 @@ static void link_devices(int child_id, int hub_id) {
         return;
     }
 
-    printf("Link request sent: Device %d -> Hub %d\n", child_id, hub_id);
+    if(creates_cycle(child_id, hub_id)) {
+        printf("Error: this link would create a cycle in the hierarchy.\n\n");
+        return;
+    }
+
+    printf("Link request sent: Device %d -> Parent %d\n", child_id, hub_id);
     fflush(stdout);
 
+    //invia messaggio al figlio
+    
     //invia messaggio all'hub. tramite fifo
     char msg[64];
     snprintf(msg, sizeof(msg), "LINK_CHILD %d %d", child_id, devices[child_idx].type);
