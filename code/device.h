@@ -22,4 +22,10 @@ typedef struct {
     int parent_id; // -1 se non è collegato a nulla
 } DeviceInfo;
 
+//per hub e timer
+typedef struct {
+    int id;
+    DeviceType type;
+} ChildDevice;
+
 #endif

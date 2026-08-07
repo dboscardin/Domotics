@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "hub.h"
 #include "ipc.h"
@@ -75,11 +76,11 @@ bool hub_remove_child(HubDevice *hub, int child_id){
 }
 
 void create_hub(int id) {
+
+    srand(time(NULL) ^ getpid());
+
     HubDevice hub;
     hub_init(&hub, id);
-
-    // Creazione FIFO
-    ipc_create_fifo(hub.id, DEVICE_HUB);
 
     // Apertura FIFO ascolto
     int fd_ascolto = ipc_open_for_listening(hub.id, DEVICE_HUB);
@@ -96,6 +97,10 @@ void create_hub(int id) {
         int bytes_letti = ipc_read_line(fd_ascolto, buffer, sizeof(buffer));
 
         if (bytes_letti > 0) {
+
+            //delay
+            ipc_simulate_delay();
+
             printf("Message received: '%s'\n", buffer);
             //link
             if (strncmp(buffer, "LINK_CHILD", 10) == 0) {
@@ -120,7 +125,8 @@ void create_hub(int id) {
             } else if(strncmp(buffer, "DELETE",6) == 0){
 
                 printf("Received DELETE command. Cascading to %d children...\n", hub.num_children);
-                
+                fflush(stdout);
+
                 // Propagazione DELETE a tutti i figli
                 for (int i = 0; i < hub.num_children; i++) {
                     int child_id = hub.children[i].id;
@@ -132,10 +138,44 @@ void create_hub(int id) {
                         close(fd_child);
                     }
                 }
+
+                usleep(60000);
+
+                printf("All child devices have been terminated.\n");
+                printf("Closed Hub ID: %d\n", hub.id);
+                fflush(stdout);
+
                 close(fd_ascolto);
-                printf("Terminating process.\n");
                 exit(0);
             }
+            else if (strncmp(buffer, "INFO", 4) == 0) {
+                printf("-------- Hub Details -------\n");
+                printf("ID: %d\n", hub.id);
+    
+                if (hub.parent_id == -1) {
+                    printf("Linked to Hub: NO\n");
+                } else {
+                    printf("Linked to Hub ID: %d\n", hub.parent_id);
+                }
+
+                printf("Connected devices count: %d\n", hub.num_children);
+    
+                if (hub.num_children == 0) {
+                    printf("  (No devices linked to this Hub)\n");
+                } else {
+                    printf("Linked Devices:\n");
+                    for (int i = 0; i < hub.num_children; i++) {
+                        printf("  %d) ID: %d | Type: %s\n", 
+                               i + 1, 
+                               hub.children[i].id, 
+                               get_device_type_name(hub.children[i].type));
+                    }
+                }
+                printf("----------------------------\n\n");
+                fflush(stdout);
+
+            }
+            
 
         } else {
             usleep(50000); // 50ms
