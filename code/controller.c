@@ -192,9 +192,44 @@ static int find_device_by_id(int id) {
     return -1;
 }
 
+//ritorna true se collegare child_id sotto hub_id creerebbe un ciclo (se child_id è già antenato di hub_id)
+static bool creates_cycle(int child_id, int hub_id) {
+    int curr_id = hub_id;
+    int steps = 0;
+
+    while(curr_id != -1) {
+        if(curr_id == child_id) {
+            return true;
+        }
+
+        int idx = find_device_by_id(curr_id);
+        if(idx == -1) {
+            //genitor non nell'array --> controller
+            break;
+        }
+
+        curr_id = devices[idx].parent_id;
+
+        steps++;
+        if(steps > device_count) {
+            break;
+        }
+    }
+    return false;
+}
+  
 static void link_devices(int child_id, int hub_id) {
+    if(child_id == hub_id) {
+        printf("Error: you can't link a device to itself.\n");
+        return;
+    }
     int child_idx = find_device_by_id(child_id);
     int hub_idx = find_device_by_id(hub_id);
+
+    if(creates_cycle(child_id, hub_id) {
+        printf("Error: this link would create a cycle in the hierarchy.\n\n");
+        return;
+    }
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
@@ -363,7 +398,7 @@ static bool switch_check(char *tokens[], int count) {
 static void switch_device(char *tokens[]) {
     int id = parse_id(tokens[1]);
     int index = find_device_by_id(id);
-    if(index = -1) return;
+    if(index == -1) return;
 
     char message[MAX_MSG_LEN];
     snprintf(message, sizeof(message), "SWITCH %s %s", tokens[2], tokens[3]);
@@ -372,7 +407,7 @@ static void switch_device(char *tokens[]) {
     if(fd != -1) {
         ipc_send_message(fd, message);
         close(fd);
-        printf("Command sent to Device %d: SWICTH %s % s.\n", id, tokens[2], tokens[3]);
+        printf("Command sent to Device %d: SWITCH %s %s.\n", id, tokens[2], tokens[3]);
     } else {
         printf("Error: Failed to communicate with Device %d.\n", id);
     }

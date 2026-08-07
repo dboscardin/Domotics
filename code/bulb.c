@@ -46,6 +46,7 @@ void bulb_run(Bulb *bulb) {
                     bulb->power = (strcmp(pos, "on") == 0);
                 }
                 printf("[Bulb %d] Power set to: %s\n", bulb->id, bulb->power ? "ON" : "OFF");
+                //inizializzare timer
             }
         } else {
             usleep(50000); // il processo consuma meno risorse
