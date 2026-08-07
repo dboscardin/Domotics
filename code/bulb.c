@@ -41,6 +41,7 @@ void bulb_run(Bulb *bulb) {
                 close(fd);
                 exit(0);
             }
+            //switch
             else if(strncmp(buffer, "SWITCH", 6) == 0) {
                 char label[32], pos[32];
                 sscanf(buffer, "SWITCH %s %s", label, pos);

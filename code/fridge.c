@@ -43,6 +43,32 @@ void fridge_run(Fridge *fridge) {
                 close(fd);
                 exit(0);
             }
+            else if(strncmp(buffer, "SWITCH", 6) == 0) {
+                char label[32], pos[32];
+                sscanf(buffer, "SWITCH %s %s", label, pos);
+
+                if(strcmp(label, "is_open") == 0) {
+                    fridge->is_open = (strcmp(pos, "on") == 0);
+                }
+                if(strcmp(label, "time") == 0) {
+                    fridge->time = atoi(pos);
+                }
+                else if(strcmp(label, "delay") == 0) {
+                    fridge->delay = atoi(pos);
+                }
+                //in seguito far sì che perc e therm siano modificati solo manualmente
+                else if(strcmp(label, "perc") == 0) {
+                    fridge->perc = atoi(pos);
+                }
+                else if(strcmp(label, "temp") == 0) {
+                    fridge->temp = atoi(pos);
+                }
+                else if(strcmp(label, "thermostat") == 0) {
+                    fridge->thermostat = atoi(pos);
+                }
+                printf("[Fridge %d] %s set to: %s\n", fridge->id, label, pos);
+                fflush(stdout);
+            }
             else if(strncmp(buffer , "INFO", 4) == 0){
                 printf("------- Fridge Details -----\n");
                 printf("ID: %d\n", fridge->id);

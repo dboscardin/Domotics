@@ -40,6 +40,21 @@ void window_run(Window *window) {
                 close(fd);
                 exit(0);
             }
+            //switch
+            else if(strncmp(buffer, "SWITCH", 6) == 0) {
+                char label[32], pos[32];
+                sscanf(buffer, "SWITCH %s %s", label, pos);
+
+                if(strcmp(label, "is_open") == 0) {
+                    fridge->is_open = (strcmp(pos, "on") == 0);
+                }
+                if(strcmp(label, "time") == 0) {
+                    fridge->time = atoi(pos);
+                }
+                printf("[Window %d] %s set to: %s\n", window->id, label, pos);
+                fflush(stdout);
+            }
+            //info
             else if(strncmp(buffer , "INFO", 4) == 0){
                 printf("------- Window Details -----\n");
                 printf("ID: %d\n", window->id);

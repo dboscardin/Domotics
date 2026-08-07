@@ -122,7 +122,7 @@ void create_hub(int id) {
                     fprintf(stderr, "Error: invalid LINK_CHILD format. \n");
                 }
             //delete        
-            } else if(strncmp(buffer, "DELETE",6) == 0){
+            } else if(strncmp(buffer, "DELETE", 6) == 0) {
 
                 printf("Received DELETE command. Cascading to %d children...\n", hub.num_children);
                 fflush(stdout);
@@ -136,7 +136,9 @@ void create_hub(int id) {
                     if (fd_child != -1) {
                         ipc_send_message(fd_child, "DELETE");
                         close(fd_child);
-                    }
+                    } /*else {
+                        printf("Warning: could not reach child ID %d.\n", child_id);
+                    }*/
                 }
 
                 usleep(60000);
@@ -147,6 +149,29 @@ void create_hub(int id) {
 
                 close(fd_ascolto);
                 exit(0);
+            }
+            else if (strncmp(buffer, "SWITCH", 6) == 0) {
+                printf("Received SWITCH command. Cascading to %d children...\n", hub.num_children);
+                fflush(stdout);
+
+                // Propagazione SWITCH a tutti i figli
+                for (int i = 0; i < hub.num_children; i++) {
+                    int child_id = hub.children[i].id;
+                    DeviceType child_type = hub.children[i].type;
+
+                    int fd_child = ipc_open_for_writing(child_id, child_type);
+                    if (fd_child != -1) {
+                        ipc_send_message(fd_child, buffer);
+                        close(fd_child);
+                    } /*else {
+                        printf("Warning: could not reach child ID %d.\n", child_id);
+                    }*/
+                }
+
+                usleep(60000);
+
+                printf("Switch reached all children devices.\n");
+                fflush(stdout);
             }
             else if (strncmp(buffer, "INFO", 4) == 0) {
                 printf("-------- Hub Details -------\n");

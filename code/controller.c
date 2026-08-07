@@ -272,7 +272,7 @@ static void link_devices(int child_id, int hub_id) {
     int child_idx = find_device_by_id(child_id);
     int hub_idx = find_device_by_id(hub_id);
 
-    if(creates_cycle(child_id, hub_id) {
+    if(creates_cycle(child_id, hub_id)) {
         printf("Error: this link would create a cycle in the hierarchy.\n\n");
         return;
     }
@@ -456,34 +456,30 @@ static void remove_device(int id) {
 }
 static bool switch_check(char *tokens[], int count) {
     //check array size
-    if(count != 4) {
-        return false;
-    } 
+    if(count != 4) return false; 
     //check if it's  valid ID
-    int id = parse_id(tokens[1]);
-    if(id == -1) {
-        return false;
-    }
+    if(parse_id(tokens[1]) == -1) return false
     //check if it works on a right attribute 
-    char *registers[] = {"power", "time", "is_open", "delay", "perc", "temp", "thermostat"};
-    bool labelFound = false;
+    struct { const char *label; bool is_bool; } registers[] = {
+        {"power", true}, {"is_open", true},
+        {"time", false}, {"delay", false},
+        {"perc", false}, {"temp", false}, {"thermostat", false}
+    };
+
     for(size_t i = 0; i < sizeof(registers) / sizeof(registers[0]); i++) {
         if(strcmp(tokens[2], registers[i]) == 0) {
-            labelFound = true;
+            if(registers[i].is_bool) {
+                return strcmp(tokens[3], "on") == 0 || strcmp(tokens[3], "off") == 0;
+            } else {
+                char *endptr;
+                //tries to convert in int
+                strtol(tokens[3], &endptr, 10);
+                //se endptr punta alla fine, tutta la stringa era un numero
+                return endptr != tokens[3] && *endptr == '\0';
+            }
         }
     }
-    if(!labelFound) { 
-        return false;
-    }
-    if(strcmp(tokens[3], "on") == 0 || strcmp(tokens[3], "off") == 0 ) {
-        return true;
-    }
-    char *endptr;
-    //tries to convert in int
-    strtol(tokens[3], &endptr, 10);
-
-    //se endptr punta alla fine, tutta la stringa era un numero
-    return (*endptr == '\0');
+    return false;
 }
 
 static void switch_device(char *tokens[]) {
