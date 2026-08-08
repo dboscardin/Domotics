@@ -16,4 +16,6 @@ void ipc_remove_fifo(int id, DeviceType type);
 
 void ipc_simulate_delay(void);
 
+void ipc_send_controller(int status_code, const char *message);
+
 #endif

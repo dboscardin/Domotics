@@ -17,8 +17,8 @@ fare cambiamenti ad alcune cose:
 [✅] Controller: Usare pthreads per l'architettura. Il Main Thread ascolta STDIN (fgets), un Listener Thread ascolta la FIFO in background.
 [✅] Controller: Usare sigprocmask per bloccare/gestire in modo sicuro il segnale SIGCHLD nei thread ed evitare race conditions.
 [✅] Controller: Creare FIFO di risposta tramite mkfifo (es. FIFO_CONTROLLER) per ricevere l'esito dei comandi.
-[ ] IPC: Aggiungere ipc_simulate_delay() (1-3s) nei figli, escludendo i comandi INFO e DELETE.
-[ ] IPC: Usare le macro di protocol.h (es. ERR_DEVICE_NOT_FOUND) e inviare la risposta tramite la FIFO del Controller.
+[✅] IPC: Aggiungere ipc_simulate_delay() (1-3s) nei figli, escludendo i comandi INFO e DELETE.
+[✅] IPC: Usare le macro di protocol.h (es. ERR_DEVICE_NOT_FOUND) e inviare la risposta tramite la FIFO del Controller.
 
 === 2. GERARCHIA & ROUTING ===
 [ ] Controller (LINK): Inviare due messaggi IPC (SET_PARENT al figlio, LINK_CHILD al padre).

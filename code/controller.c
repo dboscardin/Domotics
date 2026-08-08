@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <fcntl.h>
-
+#include <sys/stat.h>
 #include "controller.h"
 #include "device.h"
 #include "bulb.h"
@@ -72,6 +72,7 @@ static void cleanup_all_devices(void) {
         waitpid(devices[i].pid, NULL, 0);
     }
     device_count = 0;
+    unlink(FIFO_CONTROLLER);
 }
 
 // Gestione della chiusura tramite Ctrl+C
@@ -583,18 +584,18 @@ static void *listener_thread(void *arg){
         pthread_exit(NULL);
     }
 
-    char ack_buf[MAX_MSG_LEN];
+    char controller_buf[MAX_MSG_LEN];
     while(running){
 
         //thread in attesa per consumare meno cpu
-        ssize_t n = read(controller_fd, ack_buf, sizeof(ack_buf)-1);
+        ssize_t n = read(controller_fd, controller_buf, sizeof(controller_buf)-1);
 
         if(n > 0){
-            ack_buf[n] = 0;
-            ack_buf[strcspn(ack_buf, "\n")] = '\0'; //rimuove newline
+            controller_buf[n] = 0;
+            controller_buf[strcspn(controller_buf, "\n")] = '\0'; //rimuove newline
 
             //sovrascivo il prompt domotics con il messaggio e lo riscrivo
-            printf("\r%s\ndomotics> ", ack_buf);
+            printf("\r%s\ndomotics> ", controller_buf);
             fflush(stdout);
 
         }
@@ -627,7 +628,7 @@ void controller_run(void) {
 
     //create fifo controller
     unlink(FIFO_CONTROLLER);
-    if(mkfifo(FIFO_CONTROLLER,0666) = -1 ){
+    if(mkfifo(FIFO_CONTROLLER, 0666) == -1){
         perror("Error creating Controller FIFO");
         exit(1);
     }
