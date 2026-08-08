@@ -296,21 +296,35 @@ static void link_devices(int child_id, int hub_id) {
     fflush(stdout);
 
     //invia messaggio al figlio
-    
-    //invia messaggio all'hub. tramite fifo
-    char msg[64];
-    snprintf(msg, sizeof(msg), "LINK_CHILD %d %d", child_id, devices[child_idx].type);
-    int fd = ipc_open_for_writing(hub_id, devices[hub_idx].type);
-    if (fd != -1) {
-        ipc_send_message(fd, msg);
-        close(fd);
-        devices[child_idx].parent_id = hub_id;
-
-        usleep(50000); //50ms
-
+    int fd_child = ipc_open_for_writing(child_id, devices[child_idx].type);
+    if (fd_child != -1) {
+        char msg_child[64];
+        snprintf(msg_child, sizeof(msg_child), "SET_PARENT %d %d", child_id, hub_id);
+        ipc_send_message(fd_child, msg_child);
+        close(fd_child);
     } else {
-        printf("Error: failed to connect to Hub %d FIFO.\n\n", hub_id);
+        printf("Error: failed to connect to child %d FIFO.\n\n", child_id);
+        return;
     }
+
+    //invia messaggio al padre
+    int fd_parent = ipc_open_for_writing(hub_id, devices[hub_idx].type);
+    if (fd_parent != -1) {
+        char msg_parent[64];
+        snprintf(msg_parent, sizeof(msg_parent), "LINK_CHILD %d %d", child_id, devices[child_idx].type);
+        ipc_send_message(fd_parent, msg_parent);
+        close(fd_parent);
+    } else {
+        printf("Error: failed to connect to parent %d FIFO.\n\n", hub_id);
+        return;
+    }
+
+    devices[child_idx].parent_id = hub_id;
+
+    usleep(50000); 
+
+    printf("Link completed: Device %d is now child of %d\n\n", child_id, hub_id);
+    fflush(stdout);
 }
 
 static void unlink_device(int child_id,int hub_id){
@@ -460,16 +474,23 @@ static bool switch_check(char *tokens[], int count) {
     //check array size
     if(count != 4) return false; 
     //check if it's  valid ID
-    if(parse_id(tokens[1]) == -1) return false
+    if(parse_id(tokens[1]) == -1) return false;
     //check if it works on a right attribute 
-    struct { const char *label; bool is_bool; } registers[] = {
-        {"power", true}, {"is_open", true},
-        {"time", false}, {"delay", false},
-        {"perc", false}, {"temp", false}, {"thermostat", false}
+    struct {
+        const char *label;
+        bool is_bool;
+    } registers[] = {
+        {"power", true},
+        {"is_open", true},
+        {"time", false},
+        {"delay", false},
+        {"perc", false},
+        {"temp", false},
+        {"thermostat", false}
     };
 
     for(size_t i = 0; i < sizeof(registers) / sizeof(registers[0]); i++) {
-        if(strcmp(tokens[2], registers[i]) == 0) {
+        if(strcmp(tokens[2], registers[i].label) == 0) {
             if(registers[i].is_bool) {
                 return strcmp(tokens[3], "on") == 0 || strcmp(tokens[3], "off") == 0;
             } else {

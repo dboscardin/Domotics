@@ -46,10 +46,10 @@ void window_run(Window *window) {
                 sscanf(buffer, "SWITCH %s %s", label, pos);
 
                 if(strcmp(label, "is_open") == 0) {
-                    fridge->is_open = (strcmp(pos, "on") == 0);
+                    window->is_open = (strcmp(pos, "on") == 0);
                 }
                 if(strcmp(label, "time") == 0) {
-                    fridge->time = atoi(pos);
+                    window->time = atoi(pos);
                 }
                 printf("[Window %d] %s set to: %s\n", window->id, label, pos);
                 fflush(stdout);
