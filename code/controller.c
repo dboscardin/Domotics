@@ -625,6 +625,13 @@ void controller_run(void) {
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, NULL);
 
+    //create fifo controller
+    unlink(FIFO_CONTROLLER);
+    if(mkfifo(FIFO_CONTROLLER,0666) = -1 ){
+        perror("Error creating Controller FIFO");
+        exit(1);
+    }
+
     //thread
     pthread_t listener_td;
     if(pthread_create(&listener_td, NULL, listener_thread, NULL) != 0){
