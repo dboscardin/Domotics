@@ -26,6 +26,9 @@
 
 //veriabile globale per controllare il ciclo di un thread
 static volatile int running = 1;
+static pthread_mutex_t mutex;
+static pthread_cond_t sync_cond;
+static volatile bool response_received = false;
 
 static DeviceInfo devices[MAX_DEVICES];
 static int device_count = 0;    //conta dispositivi attuali
@@ -73,6 +76,8 @@ static void cleanup_all_devices(void) {
     }
     device_count = 0;
     unlink(FIFO_CONTROLLER);
+    pthread_mutex_destroy(&mutex);
+    pthread_cond_destroy(&sync_cond);
 }
 
 // Gestione della chiusura tramite Ctrl+C
@@ -526,9 +531,18 @@ static void switch_device(char *tokens[]) {
 
     int fd = ipc_open_for_writing(id, devices[index].type);
     if(fd != -1) {
+
+        pthread_mutex_lock(&mutex);
+        response_received = false;
+
         ipc_send_message(fd, message);
         close(fd);
-        printf("Command sent to Device %d: SWITCH %s %s.\n", id, tokens[2], tokens[3]);
+
+        while (!response_received) {
+            pthread_cond_wait(&sync_cond, &mutex);
+        }
+        pthread_mutex_unlock(&mutex);
+
     } else {
         printf("Error: Failed to communicate with Device %d.\n", id);
     }
@@ -543,10 +557,17 @@ static void device_info(int id) {
 
     int fd = ipc_open_for_writing(id, devices[index].type);
     if (fd != -1 ){
+
+        pthread_mutex_lock(&mutex);
+        response_received = false;
+
         ipc_send_message(fd, "INFO");
         close(fd);
 
-        usleep(100000);
+        while (!response_received) {
+            pthread_cond_wait(&sync_cond, &mutex);
+        }
+        pthread_mutex_unlock(&mutex);
     } else {
         printf("Error: failed to communicate with device ID: %d\n\n ", id);
     }
@@ -591,12 +612,23 @@ static void *listener_thread(void *arg){
         ssize_t n = read(controller_fd, controller_buf, sizeof(controller_buf)-1);
 
         if(n > 0){
-            controller_buf[n] = 0;
-            controller_buf[strcspn(controller_buf, "\n")] = '\0'; //rimuove newline
+            controller_buf[n] = '\0';
+            
+            char *message = strchr(controller_buf, ' ');
+            if(message != NULL){
+                message++;
+            } else {
+                message = controller_buf;
+            }
 
             //sovrascivo il prompt domotics con il messaggio e lo riscrivo
-            printf("\r%s\ndomotics> ", controller_buf);
+            printf("\r%s\n", message);
             fflush(stdout);
+
+            pthread_mutex_lock(&mutex);
+            response_received = true;
+            pthread_cond_signal(&sync_cond);
+            pthread_mutex_unlock(&mutex);
 
         }
 
@@ -632,6 +664,9 @@ void controller_run(void) {
         perror("Error creating Controller FIFO");
         exit(1);
     }
+
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&sync_cond, NULL);
 
     //thread
     pthread_t listener_td;

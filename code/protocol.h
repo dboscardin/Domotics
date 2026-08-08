@@ -11,7 +11,7 @@
 #define ERR_INVALID_PARAM          7
 #define ERR_CYCLE_DETECTED         8
 
-#define CMD_QUERY           "INFO"
+#define CMD_INFO           "INFO"
 #define CMD_SWITCH          "SWITCH"
 #define CMD_SET             "SET"
 #define CMD_LINK_CHILD      "LINK"
@@ -19,7 +19,7 @@
 #define CMD_SET_PARENT      "SET_PARENT"
 #define CMD_DELETE          "DELETE"
  
-#define MAX_MSG_LEN 50
+#define MAX_MSG_LEN 512
 #define FIFO_PATH_FMT "/tmp/domotica_%s_%d.fifo"
 #define FIFO_CONTROLLER "/tmp/domotica_controller_0.fifo"
 
