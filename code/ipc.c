@@ -9,6 +9,8 @@
 #include <time.h>
 #include "ipc.h"
 #include "device.h"
+#include "protocol.h"
+
 #define PERMS 0666
 
 const char *names[] = {"controller", "hub", "timer", "bulb", "window", "fridge"};
@@ -72,4 +74,21 @@ void ipc_remove_fifo(int id, DeviceType type){
 void ipc_simulate_delay(void){
     int seconds = (rand() % 3) + 1;
     sleep(seconds);
+}
+
+void ipc_send_controller(int status_code, const char *message){
+    int fd = open(FIFO_CONTROLLER, O_WRONLY | O_NONBLOCK);
+
+    if(fd != -1){
+        char buffer[MAX_MSG_LEN];
+        
+        if(message != NULL && strlen(message) > 0 ){
+            snprintf(buffer,sizeof(buffer), RESP_FORMAT, status_code,message);
+        } else {
+            snprintf(buffer,sizeof(buffer), RESP_FORMAT_NO_PAYLOAD, status_code);
+        }
+
+        write(fd, buffer,strlen(buffer));
+        close(fd);
+    }
 }

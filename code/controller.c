@@ -7,7 +7,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
-
+#include <pthread.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include "controller.h"
 #include "device.h"
 #include "bulb.h"
@@ -21,6 +23,12 @@
 #define MAX_CMD_LEN 50
 #define MAX_DEVICES 50
 #define MAX_TOKENS 10
+
+//veriabile globale per controllare il ciclo di un thread
+static volatile int running = 1;
+static pthread_mutex_t mutex;
+static pthread_cond_t sync_cond;
+static volatile bool response_received = false;
 
 static DeviceInfo devices[MAX_DEVICES];
 static int device_count = 0;    //conta dispositivi attuali
@@ -67,6 +75,9 @@ static void cleanup_all_devices(void) {
         waitpid(devices[i].pid, NULL, 0);
     }
     device_count = 0;
+    unlink(FIFO_CONTROLLER);
+    pthread_mutex_destroy(&mutex);
+    pthread_cond_destroy(&sync_cond);
 }
 
 // Gestione della chiusura tramite Ctrl+C
@@ -271,6 +282,11 @@ static void link_devices(int child_id, int hub_id) {
     }
     int child_idx = find_device_by_id(child_id);
     int hub_idx = find_device_by_id(hub_id);
+
+    if(creates_cycle(child_id, hub_id)) {
+        printf("Error: this link would create a cycle in the hierarchy.\n\n");
+        return;
+    }
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
@@ -515,9 +531,18 @@ static void switch_device(char *tokens[]) {
 
     int fd = ipc_open_for_writing(id, devices[index].type);
     if(fd != -1) {
+
+        pthread_mutex_lock(&mutex);
+        response_received = false;
+
         ipc_send_message(fd, message);
         close(fd);
-        printf("Command sent to Device %d: SWITCH %s %s.\n", id, tokens[2], tokens[3]);
+
+        while (!response_received) {
+            pthread_cond_wait(&sync_cond, &mutex);
+        }
+        pthread_mutex_unlock(&mutex);
+
     } else {
         printf("Error: Failed to communicate with Device %d.\n", id);
     }
@@ -532,10 +557,17 @@ static void device_info(int id) {
 
     int fd = ipc_open_for_writing(id, devices[index].type);
     if (fd != -1 ){
+
+        pthread_mutex_lock(&mutex);
+        response_received = false;
+
         ipc_send_message(fd, "INFO");
         close(fd);
 
-        usleep(100000);
+        while (!response_received) {
+            pthread_cond_wait(&sync_cond, &mutex);
+        }
+        pthread_mutex_unlock(&mutex);
     } else {
         printf("Error: failed to communicate with device ID: %d\n\n ", id);
     }
@@ -555,6 +587,58 @@ static void commands(void) {
     printf("info <id>: Displays the complete details of the device\n");
     printf("quit: To quit the program.\n");
 }
+
+static void *listener_thread(void *arg){
+
+    (void)arg;
+
+    //blocchimo SIGCHLD cosi da non bloccare il thread quando eliminiamo un figlio
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask,SIGCHLD);
+    pthread_sigmask(SIG_BLOCK,&mask,NULL);
+
+    //apro la fifo in sola lettura/scrittura per evitare il blocco se nessun processo figlio è collegato
+    int controller_fd = open(FIFO_CONTROLLER, O_RDWR);
+    if(controller_fd == -1){
+        perror("Error opening Controller FIFO");
+        pthread_exit(NULL);
+    }
+
+    char controller_buf[MAX_MSG_LEN];
+    while(running){
+
+        //thread in attesa per consumare meno cpu
+        ssize_t n = read(controller_fd, controller_buf, sizeof(controller_buf)-1);
+
+        if(n > 0){
+            controller_buf[n] = '\0';
+            
+            char *message = strchr(controller_buf, ' ');
+            if(message != NULL){
+                message++;
+            } else {
+                message = controller_buf;
+            }
+
+            //sovrascivo il prompt domotics con il messaggio e lo riscrivo
+            printf("%s\n", message);
+            fflush(stdout);
+
+            pthread_mutex_lock(&mutex);
+            response_received = true;
+            pthread_cond_signal(&sync_cond);
+            pthread_mutex_unlock(&mutex);
+
+        }
+
+    }
+
+    close(controller_fd);
+    return NULL;
+}
+
+
 void controller_run(void) {
 
     //evita la chiusura del controller quando si invia un comando a un device morto
@@ -574,13 +658,32 @@ void controller_run(void) {
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, NULL);
 
+    //create fifo controller
+    unlink(FIFO_CONTROLLER);
+    if(mkfifo(FIFO_CONTROLLER, 0666) == -1){
+        perror("Error creating Controller FIFO");
+        exit(1);
+    }
+
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&sync_cond, NULL);
+
+    //thread
+    pthread_t listener_td;
+    if(pthread_create(&listener_td, NULL, listener_thread, NULL) != 0){
+        perror("Failed to create listener thread");
+        exit(1);
+    }
+
 
     char buffer[MAX_CMD_LEN];  
 
     printf("What do you want to do?\n");
-    while(true) {
+    while(running) {
 
         printf("domotics> ");
+        fflush(stdout);
+
 
         if (!read_line(buffer, sizeof(buffer))) {
             printf("Exit...\n\n");
@@ -679,6 +782,17 @@ void controller_run(void) {
         }
         else if(strcmp(tokens[0], "quit") == 0) {
             printf("Exit...\n\n");
+
+            running = 0;//termina il ciclo nel thread e anche qui
+
+            //per far uscire il thread dalla read bloccante gli si manda un byte fittizio
+            int fd = open(FIFO_CONTROLLER, O_WRONLY | O_NONBLOCK);
+            if (fd != -1) { 
+                write(fd, " ", 1); 
+                close(fd); 
+            }
+
+            pthread_join(listener_td, NULL);
             cleanup_all_devices();
             return;
         }

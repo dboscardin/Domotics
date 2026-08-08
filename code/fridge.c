@@ -6,6 +6,7 @@
 #include "fridge.h"
 #include "ipc.h"
 #include "device.h"
+#include "protocol.h"
 
 #define BUFFER_SIZE 50
 
@@ -35,14 +36,13 @@ void fridge_run(Fridge *fridge) {
             //delay
             ipc_simulate_delay();
         
-            printf("Message recevied: '%s'\n",buffer);
-
             //delete
-            if (strncmp(buffer, "DELETE",6) == 0){
-                printf("Closed Fridge ID:%d\n", fridge->id);
+            if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
+                ipc_send_controller(STATUS_OK, "Device deleted.");
                 close(fd);
                 exit(0);
             }
+            //TODO sistemare switch usando FIFO controller
             else if(strncmp(buffer, "SWITCH", 6) == 0) {
                 char label[32], pos[32];
                 sscanf(buffer, "SWITCH %s %s", label, pos);
@@ -69,17 +69,23 @@ void fridge_run(Fridge *fridge) {
                 printf("[Fridge %d] %s set to: %s\n", fridge->id, label, pos);
                 fflush(stdout);
             }
-            else if(strncmp(buffer , "INFO", 4) == 0){
-                printf("------- Fridge Details -----\n");
-                printf("ID: %d\n", fridge->id);
-                printf("Door State: %s\n", fridge->is_open ? "Open" : "Closed");
-                printf("Time left open: %d s\n", fridge->time);
-                printf("Delay: %d s\n", fridge->delay);
-                printf("Fill percentage: %d%%\n", fridge->perc);
-                printf("Current Temp: %d °C\n", fridge->temp);
-                printf("Thermostat: %d °C\n", fridge->thermostat);
-                printf("----------------------------\n\n");
-                fflush(stdout);
+            else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){
+                char message[MAX_MSG_LEN];
+                snprintf(message,sizeof(message),
+                "\n------- Fridge Details -----\n"
+                "ID: %d\n"
+                "Door State: %s\n"
+                "Time left open: %d s\n"
+                "Delay: %d s\n"
+                "Fill percentage: %d%%\n"
+                "Current Temp: %d °C\n"
+                "Thermostat: %d °C\n"
+                "----------------------------\n",
+                fridge->id,fridge->is_open ? "Open" : "Closed",fridge->time,fridge->delay,fridge->perc,fridge->temp,fridge->thermostat);
+                ipc_send_controller(STATUS_OK, message);
+
+            }else {
+                ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
             }
         } else {
             usleep(50000); // il processo consuma meno risorse
