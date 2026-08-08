@@ -622,7 +622,7 @@ static void *listener_thread(void *arg){
             }
 
             //sovrascivo il prompt domotics con il messaggio e lo riscrivo
-            printf("\r%s\n", message);
+            printf("%s\n", message);
             fflush(stdout);
 
             pthread_mutex_lock(&mutex);

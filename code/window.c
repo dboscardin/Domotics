@@ -6,6 +6,7 @@
 #include "window.h"
 #include "ipc.h"
 #include "device.h"
+#include "protocol.h"
 
 #define BUFFER_SIZE 50
 
@@ -31,16 +32,14 @@ void window_run(Window *window) {
             //delay
             ipc_simulate_delay();
 
-            printf("Message recevied: '%s'\n",buffer);
-
             //delete
-            if (strncmp(buffer, "DELETE",6) == 0){
-                printf("Closed Window ID:%d\n", window->id);
-                fflush(stdout);
+            if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
+                ipc_send_controller(STATUS_OK, "Device deleted.");
                 close(fd);
                 exit(0);
             }
             //switch
+            //TODO sistemare con fifo controller
             else if(strncmp(buffer, "SWITCH", 6) == 0) {
                 char label[32], pos[32];
                 sscanf(buffer, "SWITCH %s %s", label, pos);
@@ -55,13 +54,19 @@ void window_run(Window *window) {
                 fflush(stdout);
             }
             //info
-            else if(strncmp(buffer , "INFO", 4) == 0){
-                printf("------- Window Details -----\n");
-                printf("ID: %d\n", window->id);
-                printf("State: %s\n", window->is_open ? "Open" : "Closed");
-                printf("Time left open: %d s\n", window->time);
-                printf("----------------------------\n\n");
-                fflush(stdout); 
+            else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){
+                char message[MAX_MSG_LEN];
+
+                snprintf(message,sizeof(message),
+                "\n------- Window Details -----\n"
+                "ID: %d\n"
+                "State: %s\n" 
+                "Time left open: %d s\n"
+                "----------------------------\n",
+                window->id,window->is_open ? "Open" : "Closed",window->time );
+                ipc_send_controller(STATUS_OK, message);
+            }else {
+                ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
             }
         } else {
         usleep(50000); // il processo consuma meno risorse

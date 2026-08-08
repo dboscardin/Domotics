@@ -40,15 +40,27 @@ void bulb_run(Bulb *bulb) {
                 exit(0);
             }
             //switch
-            else if(strncmp(buffer, "SWITCH", 6) == 0) {
+            else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
                 char label[32], pos[32];
-                sscanf(buffer, "SWITCH %s %s", label, pos);
+                sscanf(buffer, "%*s %s %s", label, pos);
 
                 if(strcmp(label, "power") == 0) {
-                    bulb->power = (strcmp(pos, "on") == 0);
+                    if (strcmp(pos, "on") == 0) {
+                        bulb->power = true;
+                    } else if (strcmp(pos, "off") == 0) {
+                        bulb->power = false;
+                    } else {
+                        ipc_send_controller(ERR_INVALID_PARAM, "Invalid position for power.");
+                        continue;
+                    }
+
+                    // Invia il messaggio al controller
+                    char message[MAX_MSG_LEN];
+                    snprintf(message, sizeof(message), "Bulb %d, Power set to: %s", bulb->id, bulb->power ? "ON" : "OFF");
+                    ipc_send_controller(STATUS_OK, message);
+                } else {
+                    ipc_send_controller(ERR_INVALID_PARAM, "Invalid label for Bulb.");
                 }
-                printf("[Bulb %d] Power set to: %s\n", bulb->id, bulb->power ? "ON" : "OFF");
-                fflush(stdout);
             }
             else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){
                 char message[MAX_MSG_LEN];
