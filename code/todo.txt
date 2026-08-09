@@ -39,3 +39,8 @@ SISTEMARE SWITCH DEI DEVICES E HUB CON LA FIFO_CONTROLLER
 [ ] Window: Switch a "molla" (comandi open/close aprono/chiudono ma lo switch torna istantaneamente off).
 [ ] Fridge: Bloccare le modifiche di 'perc' e 'thermostat' da Controller (consentite solo via script).
 [ ] Fridge: Implementare l'auto-chiusura della porta basata sul registro 'delay'.
+
+=== 5. SCRIPT ===
+[ ] Sistemare e finire lo script bash.
+
+
