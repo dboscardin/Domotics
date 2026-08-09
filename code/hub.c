@@ -7,6 +7,7 @@
 #include "hub.h"
 #include "ipc.h"
 #include "device.h"
+#include "protocol.h"
 
 static const char *get_device_type_name(DeviceType type) {
     switch (type) {
@@ -20,10 +21,13 @@ static const char *get_device_type_name(DeviceType type) {
     }
 }
 
-void hub_init(HubDevice *hub, int id) {
-    hub->id = id;
-    hub->parent_id = -1; // no parent
-    hub->num_children = 0;
+HubDevice create_hub_struct(int id) {
+    HubDevice hub = {
+        .id = id,
+        .parent_id = -1,
+        .num_children = 0
+    };
+    return hub;
 }
 
 bool hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
@@ -75,20 +79,11 @@ bool hub_remove_child(HubDevice *hub, int child_id){
     return true;
 }
 
-void create_hub(int id) {
-
+void hub_run(HubDevice *hub){
     srand(time(NULL) ^ getpid());
 
-    HubDevice hub;
-    hub_init(&hub, id);
-
     // Apertura FIFO ascolto
-    int fd_ascolto = ipc_open_for_listening(hub.id, DEVICE_HUB);
-
-    if (fd_ascolto == -1) {
-        fprintf(stderr, "Error: it was not possible to open the listening FIFO.\n");
-        exit(1);
-    }
+    int fd_ascolto = ipc_open_for_listening(hub->id, DEVICE_HUB);
 
     // Ricezione messaggi
     char buffer[256];
@@ -101,14 +96,13 @@ void create_hub(int id) {
             //delay
             ipc_simulate_delay();
 
-            printf("Message received: '%s'\n", buffer);
             //link
             if (strncmp(buffer, "LINK_CHILD", 10) == 0) {
                 int child_id;
                 int child_type_int;
 
                 if (sscanf(buffer, "LINK_CHILD %d %d", &child_id, &child_type_int) == 2) {
-                    hub_add_child(&hub, child_id, (DeviceType)child_type_int);
+                    hub_add_child(hub, child_id, (DeviceType)child_type_int);
                 } else {
                     fprintf(stderr, "Error: invalid LINK_CHILD format.\n");
                 }
@@ -117,20 +111,20 @@ void create_hub(int id) {
                 int child_id;
 
                 if (sscanf(buffer, "UNLINK_CHILD %d", &child_id) == 1){
-                    hub_remove_child(&hub, child_id);
+                    hub_remove_child(hub, child_id);
                 } else {
                     fprintf(stderr, "Error: invalid LINK_CHILD format. \n");
                 }
             //delete        
             } else if(strncmp(buffer, "DELETE", 6) == 0) {
 
-                printf("Received DELETE command. Cascading to %d children...\n", hub.num_children);
+                printf("Received DELETE command. Cascading to %d children...\n", hub->num_children);
                 fflush(stdout);
 
                 // Propagazione DELETE a tutti i figli
-                for (int i = 0; i < hub.num_children; i++) {
-                    int child_id = hub.children[i].id;
-                    DeviceType child_type = hub.children[i].type;
+                for (int i = 0; i < hub->num_children; i++) {
+                    int child_id = hub->children[i].id;
+                    DeviceType child_type = hub->children[i].type;
 
                     int fd_child = ipc_open_for_writing(child_id, child_type);
                     if (fd_child != -1) {
@@ -144,20 +138,20 @@ void create_hub(int id) {
                 usleep(60000);
 
                 printf("All child devices have been terminated.\n");
-                printf("Closed Hub ID: %d\n", hub.id);
+                printf("Closed Hub ID: %d\n", hub->id);
                 fflush(stdout);
 
                 close(fd_ascolto);
                 exit(0);
             }
             else if (strncmp(buffer, "SWITCH", 6) == 0) {
-                printf("Received SWITCH command. Cascading to %d children...\n", hub.num_children);
+                printf("Received SWITCH command. Cascading to %d children...\n", hub->num_children);
                 fflush(stdout);
 
                 // Propagazione SWITCH a tutti i figli
-                for (int i = 0; i < hub.num_children; i++) {
-                    int child_id = hub.children[i].id;
-                    DeviceType child_type = hub.children[i].type;
+                for (int i = 0; i < hub->num_children; i++) {
+                    int child_id = hub->children[i].id;
+                    DeviceType child_type = hub->children[i].type;
 
                     int fd_child = ipc_open_for_writing(child_id, child_type);
                     if (fd_child != -1) {
@@ -173,32 +167,42 @@ void create_hub(int id) {
                 printf("Switch reached all children devices.\n");
                 fflush(stdout);
             }
-            else if (strncmp(buffer, "INFO", 4) == 0) {
-                printf("-------- Hub Details -------\n");
-                printf("ID: %d\n", hub.id);
+            else if (strncmp(buffer, CMD_INFO, strlen(CMD_INFO)) == 0) {
+
+                char message[MAX_MSG_LEN];
+
+                int offset = 0;
+
+                offset += snprintf(message + offset, sizeof(message) - offset,
+                "\n-------- Hub Details -------\n"
+                "ID: %d\n", 
+                hub->id );
     
-                if (hub.parent_id == -1) {
-                    printf("Linked to Hub: NO\n");
+                if (hub->parent_id == -1) {
+                    offset += snprintf(message + offset, sizeof(message) - offset, "Linked to Hub: NO\n");
                 } else {
-                    printf("Linked to Hub ID: %d\n", hub.parent_id);
+                    offset += snprintf(message + offset, sizeof(message) - offset, "Linked to Hub ID: %d\n", hub->parent_id);
                 }
 
-                printf("Connected devices count: %d\n", hub.num_children);
+                offset += snprintf(message + offset, sizeof(message) - offset, "Connected devices count: %d\n", hub->num_children);
     
-                if (hub.num_children == 0) {
-                    printf("  (No devices linked to this Hub)\n");
+                if (hub->num_children == 0) {
+                    offset += snprintf(message + offset, sizeof(message) - offset, "  (No devices linked to this Hub)\n");
                 } else {
-                    printf("Linked Devices:\n");
-                    for (int i = 0; i < hub.num_children; i++) {
-                        printf("  %d) ID: %d | Type: %s\n", 
+                    offset += snprintf(message + offset, sizeof(message) - offset, "Linked Devices:\n");
+                    for (int i = 0; i < hub->num_children; i++) {
+                        offset += snprintf(message + offset, sizeof(message) - offset, "  %d) ID: %d | Type: %s\n", 
                                i + 1, 
-                               hub.children[i].id, 
-                               get_device_type_name(hub.children[i].type));
+                               hub->children[i].id, 
+                               get_device_type_name(hub->children[i].type));
                     }
                 }
-                printf("----------------------------\n\n");
-                fflush(stdout);
+                offset += snprintf(message + offset, sizeof(message) - offset, "----------------------------\n");
 
+                ipc_send_controller(STATUS_OK,message);
+
+            }else {
+                ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
             }
             
 
@@ -209,4 +213,11 @@ void create_hub(int id) {
 
     close(fd_ascolto);
     exit(0);
+
 }
+
+void create_hub(int id) {
+    HubDevice hub = create_hub_struct(id);
+    hub_run(&hub);
+}
+
