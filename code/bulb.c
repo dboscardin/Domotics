@@ -95,7 +95,7 @@ void bulb_run(Bulb *bulb) {
 
                     if(fd_hub != -1 ){
                         char resp[MAX_MSG_LEN];
-                        snprintf(resp,sizeof(resp), "%s %d %s", CMD_MIRROR_RESP, bulb->id, bulb->power ? "On" : "Off");
+                        snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, bulb->id, bulb->power ? "On" : "Off");
                         ipc_send_message(fd_hub,resp);
                         close(fd_hub);
                     }

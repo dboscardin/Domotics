@@ -28,8 +28,10 @@ SISTEMARE SWITCH DEI DEVICES E HUB CON LA FIFO_CONTROLLER
 [✅] Controller (DEL): Rimuovere la funzione ricorsiva remove_children_from_hub (DELETE solo al target, l'Hub propaga, SIGCHLD ripulisce l'array).
 
 === 3. CONTROL DEVICES - Hub & Timer ===
-[ ] Hub/Timer: Implementare il "Mirroring" (interrogare via IPC i figli all'arrivo del comando INFO).
-[ ] Hub/Timer: Segnalare stato "manual override" se i figli hanno stati discordanti.
+[✅] Hub: Implementare il "Mirroring" (interrogare via IPC i figli all'arrivo del comando INFO).
+[ ] Hub: Segnalare stato "manual override" se i figli hanno stati discordanti.
+[ ] Timer: Implementare il "Mirroring" (interrogare via IPC i figli all'arrivo del comando INFO).
+[ ] Timer: Segnalare stato "manual override" se i figli hanno stati discordanti.
 [ ] Timer: Rimuovere 'delay', implementare i registri 'begin' ed 'end' (HH:MM) con validazione errori.
 
 === 4. INTERACTION DEVICES ===

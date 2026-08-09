@@ -127,8 +127,33 @@ void fridge_run(Fridge *fridge) {
                 "----------------------------\n",
                 fridge->id,fridge->is_open ? "Open" : "Closed",fridge->time,fridge->delay,fridge->perc,fridge->temp,fridge->thermostat);
                 ipc_send_controller(STATUS_OK, message);
+            }
+            //set_parent
+            else if(strncmp(buffer , CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
+                continue;
+                //TODO: da implementare
+            }
+            //mirror
+            else if(strncmp(buffer , CMD_MIRROR, strlen(CMD_MIRROR)) == 0){
 
-            } else {
+                int hub_id;
+
+                //estraggo id dell'hub
+                if(sscanf(buffer, "%*s %d", &hub_id) == 1){
+
+                    //apro fifo hub in scrittura
+                    int fd_hub = ipc_open_for_writing(hub_id, DEVICE_HUB);
+
+                    if(fd_hub != -1 ){
+                        char resp[MAX_MSG_LEN];
+                        snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, fridge->id, fridge->is_open ? "Open" : "Closed");
+                        ipc_send_message(fd_hub,resp);
+                        close(fd_hub);
+                    }
+                }
+
+            }
+            else {
                 ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
             }
         } else {

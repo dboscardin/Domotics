@@ -30,15 +30,15 @@ HubDevice create_hub_struct(int id) {
     return hub;
 }
 
-bool hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
+int hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
     if (hub->num_children >= MAX_CHILDREN) {
-        return false;
+        return -1;
     }
 
     // Controlliamo se il dispositivo è già stato aggiunto
     for (int i = 0; i < hub->num_children; i++) {
         if (hub->children[i].id == child_id) {
-            return true;
+            return 1;
         }
     }
 
@@ -47,10 +47,10 @@ bool hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
     hub->children[hub->num_children].type = child_type;
     hub->num_children++;
 
-    return true;
+    return 0;
 }
 
-bool hub_remove_child(HubDevice *hub, int child_id){
+int hub_remove_child(HubDevice *hub, int child_id){
     int index = -1;
 
     for (int i = 0; i < hub->num_children; i++) {
@@ -61,7 +61,7 @@ bool hub_remove_child(HubDevice *hub, int child_id){
     }
 
     if (index == -1) {
-        return false;
+        return -1;
     }
 
     // Shift degli elementi verso sinistra per coprire il buco
@@ -70,7 +70,7 @@ bool hub_remove_child(HubDevice *hub, int child_id){
     }
 
     hub->num_children--;
-    return true;
+    return 0;
 }
 
 void hub_run(HubDevice *hub){
@@ -96,12 +96,20 @@ void hub_run(HubDevice *hub){
                 int child_type_int;
 
                 if (sscanf(buffer, "%*s %d %d", &child_id, &child_type_int) == 2) {
-                    if(hub_add_child(hub, child_id, (DeviceType)child_type_int)){
+
+                    int res = hub_add_child(hub, child_id, (DeviceType)child_type_int);
+                    if(res == 0){
                         char msg[MAX_MSG_LEN];
                         snprintf(msg,sizeof(msg), "Link completed: Device %d is now child of %d.", child_id, hub->id);
                         ipc_send_controller(STATUS_OK,msg);
-                    } else {
-                        ipc_send_controller(ERR_LINK_FAILED,"Failed to link: max capacity reached.");
+                    } 
+                    else if(res == 1){
+                        char msg[MAX_MSG_LEN];
+                        snprintf(msg, sizeof(msg), "Notice: Device %d is Already linked to Hub %d.", child_id, hub->id);
+                        ipc_send_controller(ERR_INVALID_PARAM, msg);
+                    }
+                    else {
+                        ipc_send_controller(ERR_LINK_FAILED, "Failed to link: max capacity reached.");
                     }
                 } else {
                     ipc_send_controller(ERR_INVALID_PARAM, "Invalid link format.");
@@ -111,10 +119,16 @@ void hub_run(HubDevice *hub){
                 int child_id;
 
                 if (sscanf(buffer, "%*s %d", &child_id) == 1){
-                    if(hub_remove_child(hub, child_id)){
-                        ipc_send_controller(STATUS_OK,"Unlink successful on Hub.");
-                    }else {
-                        ipc_send_controller(ERR_NOT_FOUND, "Child not found in this Hub.");
+
+                    int res = hub_remove_child(hub, child_id);
+                    if (res == 0) {
+                        char msg[MAX_MSG_LEN];
+                        snprintf(msg, sizeof(msg), "Unlink completed: Device %d removed from Hub %d.", child_id, hub->id);
+                        ipc_send_controller(STATUS_OK, msg);
+                    } else {
+                        char msg[MAX_MSG_LEN];
+                        snprintf(msg, sizeof(msg), "Notice: Device %d is not linked to Hub %d.", child_id, hub->id);
+                        ipc_send_controller(ERR_NOT_FOUND, msg);
                     }
                 } else {
                     fprintf(stderr, "Error: invalid LINK_CHILD format. \n");
@@ -195,31 +209,37 @@ void hub_run(HubDevice *hub){
 
                     //inizializzo devices a sconosciuto nel caso qualcuno sia crashato
                     for(int i=0; i< hub->num_children; i++){
-                        strcpy(child_states[i],"Unkonwn");
+                        strcpy(child_states[i],"Unknown");
                     }
 
                     while(response_received < hub->num_children){
-                        char mirror_buf[256];
+                        char mirror_buf[4096];
                         int n = ipc_read_line(fd_ascolto,mirror_buf,sizeof(mirror_buf));
 
                         if(n > 0){
-                            if(strncmp(mirror_buf, CMD_MIRROR_RESP, strlen(CMD_MIRROR_RESP)) == 0){
+                            //Cerco tutte le risposte nel buffer
+                            char *ptr = mirror_buf;
+                            
+                            while ((ptr = strstr(ptr, CMD_MIRROR_RESP)) != NULL) {
                                 int resp_child_id;
                                 char resp_state[32];
 
-                                //estraggo id e stato
-                                if(sscanf(mirror_buf, "%*s %d %31s", &resp_child_id, resp_state) == 2){
+                                // estraggo id e stato
+                                if(sscanf(ptr, "%*s %d %31s", &resp_child_id, resp_state) == 2){
                                     for(int i = 0; i<hub->num_children; i++){
+                                        // Aggiunto il controllo Unknown per non contare due volte per errore
                                         if(hub->children[i].id == resp_child_id){
-                                            strncpy(child_states[i],resp_state,sizeof(child_states[i])-1);
+                                            strncpy(child_states[i], resp_state, sizeof(child_states[i])-1);
                                             response_received++;
                                             break;
                                         }
                                     }
                                 }
+                                // Spostiamo il puntatore avanti per cercare la prossima risposta
+                                ptr += strlen(CMD_MIRROR_RESP);
                             }
                         } else {
-                        usleep(50000);
+                            usleep(50000);
                         }
                     }
                     for (int i = 0; i < hub->num_children; i++) {
