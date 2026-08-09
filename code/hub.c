@@ -129,9 +129,8 @@ void hub_run(HubDevice *hub){
                 close(fd_ascolto);
                 exit(0);
             }
+            //switch
             else if (strncmp(buffer, "SWITCH", 6) == 0) {
-                printf("Received SWITCH command. Cascading to %d children...\n", hub->num_children);
-                fflush(stdout);
 
                 // Propagazione SWITCH a tutti i figli
                 for (int i = 0; i < hub->num_children; i++) {
@@ -170,21 +169,72 @@ void hub_run(HubDevice *hub){
                 offset += snprintf(message + offset, sizeof(message) - offset, "Connected devices count: %d\n", hub->num_children);
     
                 if (hub->num_children == 0) {
-                    offset += snprintf(message + offset, sizeof(message) - offset, "  (No devices linked to this Hub)\n");
+                    offset += snprintf(message + offset, sizeof(message) - offset, "(No devices linked to this Hub)\n");
                 } else {
                     offset += snprintf(message + offset, sizeof(message) - offset, "Linked Devices:\n");
+
                     for (int i = 0; i < hub->num_children; i++) {
-                        offset += snprintf(message + offset, sizeof(message) - offset, "  %d) ID: %d | Type: %s\n", 
+
+                        //hub chiede lo stato dei figli
+                        int child_id = hub->children[i].id;
+                        DeviceType child_type = hub->children[i].type;
+
+                        int fd_child = ipc_open_for_writing(child_id,child_type);
+                        if(fd_child != -1){
+                            char mirror_cmd[32];
+                            snprintf(mirror_cmd, sizeof(mirror_cmd), "%s %d", CMD_MIRROR, hub->id);
+                            ipc_send_message(fd_child,mirror_cmd);
+                            close(fd_child);
+
+                        }
+                    }
+
+                    //aspestto una risposta 
+                    int response_received = 0;
+                    char child_states[MAX_CHILDREN][32];
+
+                    //inizializzo devices a sconosciuto nel caso qualcuno sia crashato
+                    for(int i=0; i< hub->num_children; i++){
+                        strcpy(child_states[i],"Unkonwn");
+                    }
+
+                    while(response_received < hub->num_children){
+                        char mirror_buf[256];
+                        int n = ipc_read_line(fd_ascolto,mirror_buf,sizeof(mirror_buf));
+
+                        if(n > 0){
+                            if(strncmp(mirror_buf, CMD_MIRROR_RESP, strlen(CMD_MIRROR_RESP)) == 0){
+                                int resp_child_id;
+                                char resp_state[32];
+
+                                //estraggo id e stato
+                                if(sscanf(mirror_buf, "%*s %d %31s", &resp_child_id, resp_state) == 2){
+                                    for(int i = 0; i<hub->num_children; i++){
+                                        if(hub->children[i].id == resp_child_id){
+                                            strncpy(child_states[i],resp_state,sizeof(child_states[i])-1);
+                                            response_received++;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                        usleep(50000);
+                        }
+                    }
+                    for (int i = 0; i < hub->num_children; i++) {
+                        offset += snprintf(message + offset, sizeof(message) - offset, "  %d) ID: %d | Type: %s | State: %s\n", 
                                i + 1, 
                                hub->children[i].id, 
-                               get_device_type_name(hub->children[i].type));
+                               get_device_type_name(hub->children[i].type),
+                               child_states[i]);
                     }
                 }
                 offset += snprintf(message + offset, sizeof(message) - offset, "----------------------------\n");
 
                 ipc_send_controller(STATUS_OK,message);
 
-            }else {
+            } else {
                 ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
             }
             

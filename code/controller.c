@@ -314,17 +314,8 @@ static void link_devices(int child_id, int hub_id) {
         char msg_child[64];
         snprintf(msg_child, sizeof(msg_child), "%s %d %d",CMD_SET_PARENT , child_id, hub_id);
 
-        pthread_mutex_lock(&mutex);
-        response_received = false;
-
         ipc_send_message(fd_child, msg_child);
         close(fd_child);
-
-        while(!response_received){
-            pthread_cond_wait(&sync_cond,&mutex);
-        }
-
-        pthread_mutex_unlock(&mutex);
 
     } else {
         printf("Error: failed to connect to child %d FIFO.\n\n", child_id);

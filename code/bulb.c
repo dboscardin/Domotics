@@ -88,7 +88,7 @@ void bulb_run(Bulb *bulb) {
                 int hub_id;
 
                 //estraggo id dell'hub
-                if(sscanf(buffer,sizeof(buffer), "%*s %d", &hub_id) == 1){
+                if(sscanf(buffer, "%*s %d", &hub_id) == 1){
 
                     //apro fifo hub in scrittura
                     int fd_hub = ipc_open_for_writing(hub_id, DEVICE_HUB);
