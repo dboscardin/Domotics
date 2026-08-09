@@ -34,7 +34,9 @@ void window_run(Window *window) {
 
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
-                ipc_send_controller(STATUS_OK, "Device deleted.");
+                char msg[MAX_MSG_LEN];
+                snprintf(msg,sizeof(msg),"Device Window %d deleted.", window->id );
+                ipc_send_controller(STATUS_OK, msg);
                 close(fd);
                 exit(0);
             }
@@ -85,7 +87,7 @@ void window_run(Window *window) {
                 "----------------------------\n",
                 window->id,window->is_open ? "Open" : "Closed",window->time );
                 ipc_send_controller(STATUS_OK, message);
-            }else {
+            } else {
                 ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
             }
         } else {

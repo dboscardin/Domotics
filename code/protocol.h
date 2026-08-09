@@ -10,6 +10,7 @@
 #define ERR_DEVICE_CRASHED         6
 #define ERR_INVALID_PARAM          7
 #define ERR_CYCLE_DETECTED         8
+#define ERR_NOT_FOUND              9
 
 #define CMD_INFO           "INFO"
 #define CMD_SWITCH          "SWITCH"

@@ -38,7 +38,9 @@ void fridge_run(Fridge *fridge) {
         
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
-                ipc_send_controller(STATUS_OK, "Device deleted.");
+                char msg[MAX_MSG_LEN];
+                snprintf(msg,sizeof(msg),"Device Fridge %d deleted.", fridge->id );
+                ipc_send_controller(STATUS_OK, msg);
                 close(fd);
                 exit(0);
             }

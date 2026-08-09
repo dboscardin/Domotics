@@ -32,14 +32,12 @@ HubDevice create_hub_struct(int id) {
 
 bool hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
     if (hub->num_children >= MAX_CHILDREN) {
-        fprintf(stderr, "Error: max children limit reached (%d)\n", MAX_CHILDREN);
         return false;
     }
 
     // Controlliamo se il dispositivo è già stato aggiunto
     for (int i = 0; i < hub->num_children; i++) {
         if (hub->children[i].id == child_id) {
-            printf("Child ID %d (%s) is already linked.\n", child_id, get_device_type_name(child_type));
             return true;
         }
     }
@@ -48,8 +46,6 @@ bool hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
     hub->children[hub->num_children].id = child_id;
     hub->children[hub->num_children].type = child_type;
     hub->num_children++;
-
-    printf("Linked child device ID: %d (Type: %s)\n", child_id, get_device_type_name(child_type));
 
     return true;
 }
@@ -65,7 +61,6 @@ bool hub_remove_child(HubDevice *hub, int child_id){
     }
 
     if (index == -1) {
-        printf("Child ID %d not found in this Hub.\n", child_id);
         return false;
     }
 
@@ -75,7 +70,6 @@ bool hub_remove_child(HubDevice *hub, int child_id){
     }
 
     hub->num_children--;
-    printf("Unlinked child device ID: %d\n", child_id);
     return true;
 }
 
@@ -97,49 +91,40 @@ void hub_run(HubDevice *hub){
             ipc_simulate_delay();
 
             //link
-            if (strncmp(buffer, "LINK_CHILD", 10) == 0) {
+            if (strncmp(buffer, CMD_LINK_CHILD, strlen(CMD_LINK_CHILD)) == 0) {
                 int child_id;
                 int child_type_int;
 
-                if (sscanf(buffer, "LINK_CHILD %d %d", &child_id, &child_type_int) == 2) {
-                    hub_add_child(hub, child_id, (DeviceType)child_type_int);
+                if (sscanf(buffer, "%*s %d %d", &child_id, &child_type_int) == 2) {
+                    if(hub_add_child(hub, child_id, (DeviceType)child_type_int)){
+                        char msg[MAX_MSG_LEN];
+                        snprintf(msg,sizeof(msg), "Link completed: Device %d is now child of %d.", child_id, hub->id);
+                        ipc_send_controller(STATUS_OK,msg);
+                    } else {
+                        ipc_send_controller(ERR_LINK_FAILED,"Failed to link: max capacity reached.");
+                    }
                 } else {
-                    fprintf(stderr, "Error: invalid LINK_CHILD format.\n");
+                    ipc_send_controller(ERR_INVALID_PARAM, "Invalid link format.");
                 }
             //unlink
-            } else if(strncmp(buffer, "UNLINK_CHILD", 12) == 0){
+            } else if(strncmp(buffer, CMD_UNLINK_CHILD, strlen(CMD_UNLINK_CHILD)) == 0){
                 int child_id;
 
-                if (sscanf(buffer, "UNLINK_CHILD %d", &child_id) == 1){
-                    hub_remove_child(hub, child_id);
+                if (sscanf(buffer, "%*s %d", &child_id) == 1){
+                    if(hub_remove_child(hub, child_id)){
+                        ipc_send_controller(STATUS_OK,"Unlink successful on Hub.");
+                    }else {
+                        ipc_send_controller(ERR_NOT_FOUND, "Child not found in this Hub.");
+                    }
                 } else {
                     fprintf(stderr, "Error: invalid LINK_CHILD format. \n");
                 }
             //delete        
-            } else if(strncmp(buffer, "DELETE", 6) == 0) {
+            } else if(strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0) {
 
-                printf("Received DELETE command. Cascading to %d children...\n", hub->num_children);
-                fflush(stdout);
-
-                // Propagazione DELETE a tutti i figli
-                for (int i = 0; i < hub->num_children; i++) {
-                    int child_id = hub->children[i].id;
-                    DeviceType child_type = hub->children[i].type;
-
-                    int fd_child = ipc_open_for_writing(child_id, child_type);
-                    if (fd_child != -1) {
-                        ipc_send_message(fd_child, "DELETE");
-                        close(fd_child);
-                    } /*else {
-                        printf("Warning: could not reach child ID %d.\n", child_id);
-                    }*/
-                }
-
-                usleep(60000);
-
-                printf("All child devices have been terminated.\n");
-                printf("Closed Hub ID: %d\n", hub->id);
-                fflush(stdout);
+                char msg[MAX_MSG_LEN];
+                snprintf(msg,sizeof(msg), "Hub %d and all its children deleted.", hub->id);
+                ipc_send_controller(STATUS_OK,msg);
 
                 close(fd_ascolto);
                 exit(0);
@@ -157,16 +142,14 @@ void hub_run(HubDevice *hub){
                     if (fd_child != -1) {
                         ipc_send_message(fd_child, buffer);
                         close(fd_child);
-                    } /*else {
-                        printf("Warning: could not reach child ID %d.\n", child_id);
-                    }*/
+                    } 
                 }
 
-                usleep(60000);
-
-                printf("Switch reached all children devices.\n");
-                fflush(stdout);
+                char message[MAX_MSG_LEN];
+                snprintf(message, sizeof(message), "Hub %d Switch command cascaded to %d children.", hub->id, hub->num_children);
+                ipc_send_controller(STATUS_OK, message);
             }
+            //INFO
             else if (strncmp(buffer, CMD_INFO, strlen(CMD_INFO)) == 0) {
 
                 char message[MAX_MSG_LEN];

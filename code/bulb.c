@@ -35,7 +35,9 @@ void bulb_run(Bulb *bulb) {
 
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
-                ipc_send_controller(STATUS_OK, "Device deleted.");
+                char msg[MAX_MSG_LEN];
+                snprintf(msg,sizeof(msg),"Device Bulb %d deleted.", bulb->id );
+                ipc_send_controller(STATUS_OK, msg);
                 close(fd);
                 exit(0);
             }
@@ -73,7 +75,7 @@ void bulb_run(Bulb *bulb) {
                 "----------------------------\n", 
                 bulb->id, bulb->power ? "On" : "Off", bulb->time);
                 ipc_send_controller(STATUS_OK, message);
-            }else {
+            } else {
                 ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
             }
 
