@@ -208,7 +208,7 @@ void hub_run(HubDevice *hub){
 
                     //inizializzo devices a sconosciuto nel caso qualcuno sia crashato
                     for(int i=0; i< hub->num_children; i++){
-                        strcpy(child_states[i],"Unknown");
+                        snprintf(child_states[i],sizeof(child_states[i]),"Unknown");
                     }
 
                     while(response_received < hub->num_children){
