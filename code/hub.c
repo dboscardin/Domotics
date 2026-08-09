@@ -185,7 +185,6 @@ void hub_run(HubDevice *hub){
                 if (hub->num_children == 0) {
                     offset += snprintf(message + offset, sizeof(message) - offset, "(No devices linked to this Hub)\n");
                 } else {
-                    offset += snprintf(message + offset, sizeof(message) - offset, "Linked Devices:\n");
 
                     for (int i = 0; i < hub->num_children; i++) {
 
@@ -242,6 +241,34 @@ void hub_run(HubDevice *hub){
                             usleep(50000);
                         }
                     }
+
+                    bool is_active = false;
+                    bool is_inactive = false;
+
+                    //scansiono gli stati raccolti per vedere lo stato globale
+                    for (int i = 0; i < hub->num_children; i++) {
+                        if (strcmp(child_states[i], "On") == 0 || strcmp(child_states[i], "Open") == 0) {
+                            is_active = true;
+                        } 
+                        else if (strcmp(child_states[i], "Off") == 0 || strcmp(child_states[i], "Closed") == 0) {
+                            is_inactive = true;
+                        }
+                    }
+
+                    // Determino lo stato complessivo dell'Hub
+                    const char *overall_state = "Unknown";
+                    if (is_active && is_inactive) {
+                        overall_state = "Manual Override (Discordant)";
+                    } else if (is_active) {
+                        overall_state = "Active (All On/Open)";
+                    } else if (is_inactive) {
+                        overall_state = "Inactive (All Off/Closed)";
+                    }
+
+                    // Stampiamo lo stato complessivo prima dell'elenco
+                    offset += snprintf(message + offset, sizeof(message) - offset, "Overall State: %s\nLinked Devices:\n", overall_state);
+
+                    // Stampo l'elenco dei dispositivi
                     for (int i = 0; i < hub->num_children; i++) {
                         offset += snprintf(message + offset, sizeof(message) - offset, "  %d) ID: %d | Type: %s | State: %s\n", 
                                i + 1, 
