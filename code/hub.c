@@ -93,11 +93,11 @@ void hub_run(HubDevice *hub){
             //link
             if (strncmp(buffer, CMD_LINK_CHILD, strlen(CMD_LINK_CHILD)) == 0) {
                 int child_id;
-                int child_type_int;
+                int child_type;
 
-                if (sscanf(buffer, "%*s %d %d", &child_id, &child_type_int) == 2) {
+                if (sscanf(buffer, "%*s %d %d", &child_id, &child_type) == 2) {
 
-                    int res = hub_add_child(hub, child_id, (DeviceType)child_type_int);
+                    int res = hub_add_child(hub, child_id, (DeviceType)child_type);
                     if(res == 0){
                         char msg[MAX_MSG_LEN];
                         snprintf(msg,sizeof(msg), "Link completed: Device %d is now child of %d.", child_id, hub->id);
@@ -135,6 +135,17 @@ void hub_run(HubDevice *hub){
                 }
             //delete        
             } else if(strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0) {
+
+                for(int i=0; i < hub->num_children; i++){
+                    int child_id = hub->children[i].id;
+                    DeviceType child_type = hub->children[i].type;
+
+                    int fd_child = ipc_open_for_writing(child_id,child_type);
+                    if(fd_child != -1){
+                        ipc_send_message(fd_child, CMD_DELETE);
+                        close(fd_child);
+                    }
+                }
 
                 char msg[MAX_MSG_LEN];
                 snprintf(msg,sizeof(msg), "Hub %d and all its children deleted.", hub->id);
