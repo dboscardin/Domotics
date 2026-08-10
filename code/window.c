@@ -34,9 +34,23 @@ void window_run(Window *window) {
 
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
-                char msg[MAX_MSG_LEN];
-                snprintf(msg,sizeof(msg),"Device Window %d deleted.", window->id );
-                ipc_send_controller(STATUS_OK, msg);
+                int sender = -1;
+                int sender_type = -1;
+                
+                if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
+                    int fd_parend = ipc_open_for_writing(sender,(DeviceType)sender_type);
+                    if(fd_parend != -1){
+                        char msg[32];
+                        snprintf(msg, sizeof(msg), "MSG %d", window->id);
+                        ipc_send_message(fd_parend,msg);
+                        close(fd_parend);
+                    }
+                } else {
+                    char msg[MAX_MSG_LEN];
+                    snprintf(msg,sizeof(msg),"Device Bulb %d deleted.", window->id );
+                    ipc_send_controller(STATUS_OK, msg);
+                    
+                }
                 close(fd);
                 exit(0);
             }

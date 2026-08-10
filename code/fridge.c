@@ -38,9 +38,23 @@ void fridge_run(Fridge *fridge) {
         
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
-                char msg[MAX_MSG_LEN];
-                snprintf(msg,sizeof(msg),"Device Fridge %d deleted.", fridge->id );
-                ipc_send_controller(STATUS_OK, msg);
+                int sender = -1;
+                int sender_type = -1;
+                
+                if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
+                    int fd_parend = ipc_open_for_writing(sender,(DeviceType)sender_type);
+                    if(fd_parend != -1){
+                        char msg[32];
+                        snprintf(msg, sizeof(msg), "MSG %d", fridge->id);
+                        ipc_send_message(fd_parend,msg);
+                        close(fd_parend);
+                    }
+                } else {
+                    char msg[MAX_MSG_LEN];
+                    snprintf(msg,sizeof(msg),"Device Bulb %d deleted.", fridge->id );
+                    ipc_send_controller(STATUS_OK, msg);
+                    
+                }
                 close(fd);
                 exit(0);
             }
@@ -113,6 +127,7 @@ void fridge_run(Fridge *fridge) {
                 }
                 fflush(stdout);
             }
+            //info
             else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){
                 char message[MAX_MSG_LEN];
                 snprintf(message,sizeof(message),

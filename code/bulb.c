@@ -39,7 +39,7 @@ void bulb_run(Bulb *bulb) {
                 int sender = -1;
                 int sender_type = -1;
                 
-                if(sscanf(buffer, "%*s %d %d", sender,sender_type) == 2){
+                if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
                     int fd_parend = ipc_open_for_writing(sender,(DeviceType)sender_type);
                     if(fd_parend != -1){
                         char msg[32];
@@ -51,9 +51,10 @@ void bulb_run(Bulb *bulb) {
                     char msg[MAX_MSG_LEN];
                     snprintf(msg,sizeof(msg),"Device Bulb %d deleted.", bulb->id );
                     ipc_send_controller(STATUS_OK, msg);
-                    close(fd);
-                    exit(0);
+                    
                 }
+                close(fd);
+                exit(0);
             }
             //switch
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
@@ -107,7 +108,7 @@ void bulb_run(Bulb *bulb) {
                     //apro fifo hub in scrittura
                     int fd_hub = ipc_open_for_writing(hub_id, DEVICE_HUB);
 
-                    if(fd_hub != -1 ){
+                    if(fd_hub != -1 ){  
                         char resp[MAX_MSG_LEN];
                         snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, bulb->id, bulb->power ? "On" : "Off");
                         ipc_send_message(fd_hub,resp);

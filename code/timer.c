@@ -70,6 +70,10 @@ void timer_run(TimerDevice *timer){
                     }
                 }
             }
+            //setparent
+            else if(strncmp(buffer, CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
+                continue;
+            }
             //unlink
             else if(strncmp(buffer, CMD_UNLINK_CHILD, strlen(CMD_UNLINK_CHILD)) == 0){
                 

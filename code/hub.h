@@ -24,6 +24,8 @@ int hub_add_child(HubDevice *hub, int child_id, DeviceType type);
 //rimuove un figlio dall'hub
 int hub_remove_child(HubDevice *hub, int child_id);
 
+
+
 void hub_run(HubDevice *hub);
 
 //Creazione hub

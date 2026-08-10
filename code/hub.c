@@ -73,6 +73,81 @@ int hub_remove_child(HubDevice *hub, int child_id){
     return 0;
 }
 
+static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHILDREN][64], char *overall_state, size_t state_len) {
+    if (hub->num_children == 0) {
+        snprintf(overall_state, state_len, "None");
+        return;
+    }
+
+    //Invio MIRROR
+    for (int i = 0; i < hub->num_children; i++) {
+        snprintf(child_states[i], 64, "Unknown");
+        
+        int fd_child = ipc_open_for_writing(hub->children[i].id, hub->children[i].type);
+        if (fd_child != -1) {
+            char cmd[32];
+            snprintf(cmd, sizeof(cmd), "%s %d", CMD_MIRROR, hub->id);
+            ipc_send_message(fd_child, cmd);
+            close(fd_child);
+        }
+    }
+
+    //Aspetto le risposte dai figli
+    int received = 0;
+    int timeout = 300; 
+
+    while (received < hub->num_children && timeout > 0) {
+        char buf[4096];
+        if (ipc_read_line(fd_ascolto, buf, sizeof(buf)) > 0) {
+            char *ptr = buf;
+            while ((ptr = strstr(ptr, CMD_MIRROR_RESP)) != NULL) {
+                int id;
+                char state[256];    
+                
+                // %63[^\r\n] legge tutta la stringa fino a fine riga
+                if (sscanf(ptr, "%*s %d %s", &id, state) == 2) {
+                    for (int i = 0; i < hub->num_children; i++) {
+                        if (hub->children[i].id == id && strcmp(child_states[i], "Unknown") == 0) {
+                            snprintf(child_states[i], 64, "%s", state);
+                            received++;
+                            break;
+                        }
+                    }
+                }
+                ptr += strlen(CMD_MIRROR_RESP);
+            }
+        } else {
+            usleep(50000);
+            timeout--;
+        }
+    }
+
+    //calcolo dello stato
+    bool is_active = false;
+    bool is_inactive = false;
+
+    for (int i = 0; i < hub->num_children; i++) {
+        if (strstr(child_states[i], "Override")) {
+            is_active = is_inactive = true;
+        } else if (strstr(child_states[i], "On") || strstr(child_states[i], "Open") || strstr(child_states[i], "Active")) {
+            is_active = true;
+        } else if (strstr(child_states[i], "Off") || strstr(child_states[i], "Closed") || strstr(child_states[i], "Inactive")) {
+            is_inactive = true;
+        }
+    }
+
+    if (is_active && is_inactive){
+        snprintf(overall_state, state_len, "Manual_Override");
+    } else if (is_active){           
+        snprintf(overall_state, state_len, "Active");
+    } else if (is_inactive){         
+        snprintf(overall_state, state_len, "Inactive");
+    } else{                         
+        snprintf(overall_state, state_len, "Unknown");
+    }
+
+}
+
 void hub_run(HubDevice *hub){
     srand(time(NULL) ^ getpid());
 
@@ -114,8 +189,18 @@ void hub_run(HubDevice *hub){
                 } else {
                     ipc_send_controller(ERR_INVALID_PARAM, "Invalid link format.");
                 }
+            
+            } 
+            //setparent
+            else if(strncmp(buffer, CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
+                int p_id;
+                if (sscanf(buffer, "%*s %*d %d", &p_id) == 1) {
+                    hub->parent_id = p_id;
+                }
+                continue;
+            }
             //unlink
-            } else if(strncmp(buffer, CMD_UNLINK_CHILD, strlen(CMD_UNLINK_CHILD)) == 0){
+            else if(strncmp(buffer, CMD_UNLINK_CHILD, strlen(CMD_UNLINK_CHILD)) == 0){
                 int child_id;
 
                 if (sscanf(buffer, "%*s %d", &child_id) == 1){
@@ -215,7 +300,7 @@ void hub_run(HubDevice *hub){
                 hub->id );
     
                 if (hub->parent_id == -1) {
-                    offset += snprintf(message + offset, sizeof(message) - offset, "Linked to Hub: NO\n");
+                    offset += snprintf(message + offset, sizeof(message) - offset, "Linked to Hub: no\n");
                 } else {
                     offset += snprintf(message + offset, sizeof(message) - offset, "Linked to Hub ID: %d\n", hub->parent_id);
                 }
@@ -226,101 +311,38 @@ void hub_run(HubDevice *hub){
                     offset += snprintf(message + offset, sizeof(message) - offset, "(No devices linked to this Hub)\n");
                 } else {
 
-                    for (int i = 0; i < hub->num_children; i++) {
+                    char child_states[MAX_CHILDREN][64];
+                    char overall_state[64];
+                    get_state(hub,fd_ascolto,child_states,overall_state, sizeof(overall_state));
 
-                        //hub chiede lo stato dei figli
-                        int child_id = hub->children[i].id;
-                        DeviceType child_type = hub->children[i].type;
-
-                        int fd_child = ipc_open_for_writing(child_id,child_type);
-                        if(fd_child != -1){
-                            char mirror_cmd[32];
-                            snprintf(mirror_cmd, sizeof(mirror_cmd), "%s %d", CMD_MIRROR, hub->id);
-                            ipc_send_message(fd_child,mirror_cmd);
-                            close(fd_child);
-
-                        }
-                    }
-
-                    //aspestto una risposta 
-                    int response_received = 0;
-                    char child_states[MAX_CHILDREN][32];
-
-                    //inizializzo devices a sconosciuto nel caso qualcuno sia crashato
-                    for(int i=0; i< hub->num_children; i++){
-                        snprintf(child_states[i],sizeof(child_states[i]),"Unknown");
-                    }
-
-                    while(response_received < hub->num_children){
-                        char mirror_buf[4096];
-                        int n = ipc_read_line(fd_ascolto,mirror_buf,sizeof(mirror_buf));
-
-                        if(n > 0){
-                            //Cerco tutte le risposte nel buffer
-                            char *ptr = mirror_buf;
-                            
-                            while ((ptr = strstr(ptr, CMD_MIRROR_RESP)) != NULL) {
-                                int resp_child_id;
-                                char resp_state[32];
-
-                                // estraggo id e stato
-                                if(sscanf(ptr, "%*s %d %31s", &resp_child_id, resp_state) == 2){
-                                    for(int i = 0; i<hub->num_children; i++){
-                                        // Aggiunto il controllo Unknown per non contare due volte per errore
-                                        if(hub->children[i].id == resp_child_id){
-                                            strncpy(child_states[i], resp_state, sizeof(child_states[i])-1);
-                                            response_received++;
-                                            break;
-                                        }
-                                    }
-                                }
-                                // Spostiamo il puntatore avanti per cercare la prossima risposta
-                                ptr += strlen(CMD_MIRROR_RESP);
-                            }
-                        } else {
-                            usleep(50000);
-                        }
-                    }
-
-                    bool is_active = false;
-                    bool is_inactive = false;
-
-                    //scansiono gli stati raccolti per vedere lo stato globale
-                    for (int i = 0; i < hub->num_children; i++) {
-                        if (strcmp(child_states[i], "On") == 0 || strcmp(child_states[i], "Open") == 0) {
-                            is_active = true;
-                        } 
-                        else if (strcmp(child_states[i], "Off") == 0 || strcmp(child_states[i], "Closed") == 0) {
-                            is_inactive = true;
-                        }
-                    }
-
-                    // Determino lo stato complessivo dell'Hub
-                    const char *overall_state = "Unknown";
-                    if (is_active && is_inactive) {
-                        overall_state = "Manual Override (Discordant)";
-                    } else if (is_active) {
-                        overall_state = "Active (All On/Open)";
-                    } else if (is_inactive) {
-                        overall_state = "Inactive (All Off/Closed)";
-                    }
-
-                    // Stampiamo lo stato complessivo prima dell'elenco
                     offset += snprintf(message + offset, sizeof(message) - offset, "Overall State: %s\nLinked Devices:\n", overall_state);
 
-                    // Stampo l'elenco dei dispositivi
                     for (int i = 0; i < hub->num_children; i++) {
                         offset += snprintf(message + offset, sizeof(message) - offset, "  %d) ID: %d | Type: %s | State: %s\n", 
-                               i + 1, 
-                               hub->children[i].id, 
-                               get_device_type_name(hub->children[i].type),
-                               child_states[i]);
+                               i + 1, hub->children[i].id, get_device_type_name(hub->children[i].type), child_states[i]);
                     }
                 }
                 offset += snprintf(message + offset, sizeof(message) - offset, "----------------------------\n");
 
                 ipc_send_controller(STATUS_OK,message);
 
+            } 
+            //Mirror
+            else if (strncmp(buffer, CMD_MIRROR, strlen(CMD_MIRROR)) == 0) {
+                int p_hub_id;
+                if (sscanf(buffer, "%*s %d", &p_hub_id) == 1) {
+                    char child_states[MAX_CHILDREN][64];
+                    char overall_state[64];
+                    get_state(hub, fd_ascolto, child_states, overall_state, sizeof(overall_state));
+                    
+                    int fd_parent = ipc_open_for_writing(p_hub_id, DEVICE_HUB);
+                    if (fd_parent != -1) {
+                        char resp[MAX_MSG_LEN];
+                        snprintf(resp, sizeof(resp), "%s %d %s", CMD_MIRROR_RESP, hub->id, overall_state);
+                        ipc_send_message(fd_parent, resp);
+                        close(fd_parent);
+                    }
+                }
             } else {
                 ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
             }
