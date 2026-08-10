@@ -100,19 +100,20 @@ void bulb_run(Bulb *bulb) {
             //mirror
             else if(strncmp(buffer , CMD_MIRROR, strlen(CMD_MIRROR)) == 0){
 
-                int hub_id;
+                int sender_id = -1;
+                int sender_type = -1;
 
                 //estraggo id dell'hub
-                if(sscanf(buffer, "%*s %d", &hub_id) == 1){
+                if(sscanf(buffer, "%*s %d %d", &sender_id, &sender_type) == 2){
 
                     //apro fifo hub in scrittura
-                    int fd_hub = ipc_open_for_writing(hub_id, DEVICE_HUB);
+                    int fd_sender = ipc_open_for_writing(sender_id, sender_type);
 
-                    if(fd_hub != -1 ){  
+                    if(fd_sender != -1 ){  
                         char resp[MAX_MSG_LEN];
                         snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, bulb->id, bulb->power ? "On" : "Off");
-                        ipc_send_message(fd_hub,resp);
-                        close(fd_hub);
+                        ipc_send_message(fd_sender,resp);
+                        close(fd_sender);
                     }
                 }
 

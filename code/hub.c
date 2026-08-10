@@ -86,7 +86,7 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
         int fd_child = ipc_open_for_writing(hub->children[i].id, hub->children[i].type);
         if (fd_child != -1) {
             char cmd[32];
-            snprintf(cmd, sizeof(cmd), "%s %d", CMD_MIRROR, hub->id);
+            snprintf(cmd, sizeof(cmd), "%s %d %d", CMD_MIRROR, hub->id, DEVICE_HUB);
             ipc_send_message(fd_child, cmd);
             close(fd_child);
         }
@@ -102,9 +102,8 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
             char *ptr = buf;
             while ((ptr = strstr(ptr, CMD_MIRROR_RESP)) != NULL) {
                 int id;
-                char state[256];    
+                char state[64];    
                 
-                // %63[^\r\n] legge tutta la stringa fino a fine riga
                 if (sscanf(ptr, "%*s %d %s", &id, state) == 2) {
                     for (int i = 0; i < hub->num_children; i++) {
                         if (hub->children[i].id == id && strcmp(child_states[i], "Unknown") == 0) {
@@ -127,7 +126,7 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
     bool is_inactive = false;
 
     for (int i = 0; i < hub->num_children; i++) {
-        if (strstr(child_states[i], "Override")) {
+        if (strstr(child_states[i], "Manual_Override")) {
             is_active = is_inactive = true;
         } else if (strstr(child_states[i], "On") || strstr(child_states[i], "Open") || strstr(child_states[i], "Active")) {
             is_active = true;
@@ -329,13 +328,14 @@ void hub_run(HubDevice *hub){
             } 
             //Mirror
             else if (strncmp(buffer, CMD_MIRROR, strlen(CMD_MIRROR)) == 0) {
-                int p_hub_id;
-                if (sscanf(buffer, "%*s %d", &p_hub_id) == 1) {
+                int p_sender_id;
+                int p_sender_type;
+                if (sscanf(buffer, "%*s %d %d", &p_sender_id, &p_sender_type) == 2) {
                     char child_states[MAX_CHILDREN][64];
                     char overall_state[64];
                     get_state(hub, fd_ascolto, child_states, overall_state, sizeof(overall_state));
                     
-                    int fd_parent = ipc_open_for_writing(p_hub_id, DEVICE_HUB);
+                    int fd_parent = ipc_open_for_writing(p_sender_id, p_sender_type);
                     if (fd_parent != -1) {
                         char resp[MAX_MSG_LEN];
                         snprintf(resp, sizeof(resp), "%s %d %s", CMD_MIRROR_RESP, hub->id, overall_state);

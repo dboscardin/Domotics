@@ -137,9 +137,9 @@ static void devices_list(void) {
         {
             printf("%d --> Id=%d, Pid=%d, Type=%s, ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
             if(devices[i].parent_id == -1){
-                printf("Linked: NO\n");
+                printf("Linked:no\n");
             } else {
-                printf("Linked to ID: %d\n", devices[i].parent_id);
+                printf("Linked to ID:%d\n", devices[i].parent_id);
             }
         }
         printf("\n");
