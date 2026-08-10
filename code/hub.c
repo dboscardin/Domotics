@@ -193,7 +193,7 @@ void hub_run(HubDevice *hub){
             //setparent
             else if(strncmp(buffer, CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
                 int p_id;
-                if (sscanf(buffer, "%*s %*d %d", &p_id) == 1) {
+                if (sscanf(buffer, "%*s %d", &p_id) == 1) {
                     hub->parent_id = p_id;
                 }
                 continue;
@@ -203,19 +203,40 @@ void hub_run(HubDevice *hub){
                 int child_id;
 
                 if (sscanf(buffer, "%*s %d", &child_id) == 1){
+                    int child_idx = -1;
+                    for (int i = 0; i < hub->num_children; i++) {
+                        if (hub->children[i].id == child_id) {
+                            child_idx = i;
+                            break;
+                        }
+                    }
 
-                    int res = hub_remove_child(hub, child_id);
-                    if (res == 0) {
-                        char msg[MAX_MSG_LEN];
-                        snprintf(msg, sizeof(msg), "Unlink completed: Device %d removed from Hub %d.", child_id, hub->id);
-                        ipc_send_controller(STATUS_OK, msg);
+                    if (child_idx != -1) {
+                        int fd_child = ipc_open_for_writing(child_id, hub->children[child_idx].type);
+                        if (fd_child != -1) {
+                            char cmd_unlink[64];
+                            snprintf(cmd_unlink, sizeof(cmd_unlink), "%s -1", CMD_SET_PARENT);
+                            ipc_send_message(fd_child, cmd_unlink);
+                            close(fd_child);
+                        }
+
+                        int res = hub_remove_child(hub, child_id);
+                        if (res == 0) {
+                            char msg[MAX_MSG_LEN];
+                            snprintf(msg, sizeof(msg), "Unlink completed: Device %d removed from Hub %d.", child_id, hub->id);
+                            ipc_send_controller(STATUS_OK, msg);
+                        } else {
+                            char msg[MAX_MSG_LEN];
+                            snprintf(msg, sizeof(msg), "Notice: Device %d is not linked to Hub %d.", child_id, hub->id);
+                            ipc_send_controller(ERR_NOT_FOUND, msg);
+                        }
                     } else {
                         char msg[MAX_MSG_LEN];
                         snprintf(msg, sizeof(msg), "Notice: Device %d is not linked to Hub %d.", child_id, hub->id);
                         ipc_send_controller(ERR_NOT_FOUND, msg);
                     }
                 } else {
-                    fprintf(stderr, "Error: invalid LINK_CHILD format. \n");
+                    fprintf(stderr, "Error: invalid UNLINK format.\n");
                 }
             //delete        
             } else if(strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0) {

@@ -115,7 +115,9 @@ void timer_run(TimerDevice *timer){
             //setparent
             else if(strncmp(buffer, CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
                 int p_id;
-                if (sscanf(buffer, "%*s %*d %d", &p_id) == 1) timer->parent_id = p_id;
+                if (sscanf(buffer, "%*s %d", &p_id) == 1){ 
+                    timer->parent_id = p_id;
+                }
                 continue;
             }
             //unlink
@@ -124,10 +126,22 @@ void timer_run(TimerDevice *timer){
                 int child_id;
                 if (sscanf(buffer, "%*s %d", &child_id) == 1){
                     if (timer->num_children > 0 && timer->children[0].id == child_id) {
+
+                        //avviso i figli di toglermi come padre
+                        int fd_child = ipc_open_for_writing(child_id,timer->children[0].type);
+                        if(fd_child != -1){
+                            char cmd_unlink[64];
+                            snprintf(cmd_unlink, sizeof(cmd_unlink), "%s -1", CMD_SET_PARENT);
+                            ipc_send_message(fd_child, cmd_unlink);
+                            close(fd_child);
+                        }
+
+                        //rimuovo il figlio
                         timer->num_children = 0;
                         char msg[MAX_MSG_LEN];
                         snprintf(msg,sizeof(msg), "Unlink completed: Device %d removed from Timer.", child_id);
                         ipc_send_controller(STATUS_OK, msg);
+                        
                     } else {
                         char msg[MAX_MSG_LEN];
                         snprintf(msg,sizeof(msg), "Notice: Device %d is not linked to this Timer.", child_id);

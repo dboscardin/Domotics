@@ -315,7 +315,7 @@ static void link_devices(int child_id, int hub_id) {
     int fd_child = ipc_open_for_writing(child_id, devices[child_idx].type);
     if (fd_child != -1) {
         char msg_child[64];
-        snprintf(msg_child, sizeof(msg_child), "%s %d %d",CMD_SET_PARENT , child_id, hub_id);
+        snprintf(msg_child, sizeof(msg_child), "%s %d",CMD_SET_PARENT, hub_id);
 
         ipc_send_message(fd_child, msg_child);
         close(fd_child);
