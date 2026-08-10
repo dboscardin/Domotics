@@ -136,20 +136,49 @@ void hub_run(HubDevice *hub){
             //delete        
             } else if(strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0) {
 
+                int sender_id = -1;
+                int sender_type = -1;
+
                 for(int i=0; i < hub->num_children; i++){
                     int child_id = hub->children[i].id;
                     DeviceType child_type = hub->children[i].type;
 
                     int fd_child = ipc_open_for_writing(child_id,child_type);
                     if(fd_child != -1){
-                        ipc_send_message(fd_child, CMD_DELETE);
+                        char cmd[64];
+                        snprintf(cmd, sizeof(cmd), "%s %d %d", CMD_DELETE, hub->id, DEVICE_HUB);
+                        ipc_send_message(fd_child, cmd);
                         close(fd_child);
                     }
                 }
 
-                char msg[MAX_MSG_LEN];
-                snprintf(msg,sizeof(msg), "Hub %d and all its children deleted.", hub->id);
-                ipc_send_controller(STATUS_OK,msg);
+                int deleted = 0;
+                int timeout = 300; //timer per evitare di stare nel loop in caso un figlio sia crashato
+                while (deleted < hub->num_children && timeout > 0) {
+                    char deleted_buf[64];
+                    int n = ipc_read_line(fd_ascolto, deleted_buf, sizeof(deleted_buf));
+                    if (n > 0 && strncmp(deleted_buf, "MSG", 3) == 0) {
+                        deleted++;
+                    } else {
+                        usleep(10000); //10ms
+                        timeout--;
+                    }
+                }
+
+                //rispondo a chi mi ha eliminato
+                if (sscanf(buffer, "%*s %d %d", &sender_id,&sender_type) == 2) {
+                    int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
+                    if (fd_parent != -1) {
+                        char msg[32];
+                        snprintf(msg, sizeof(msg), "MSG %d", hub->id);
+                        ipc_send_message(fd_parent, msg);
+                        close(fd_parent);
+                    }
+                } else {
+                    char msg[MAX_MSG_LEN];
+                    snprintf(msg,sizeof(msg), "Hub %d and all its children deleted.", hub->id);
+                    ipc_send_controller(STATUS_OK,msg); 
+                }
 
                 close(fd_ascolto);
                 exit(0);

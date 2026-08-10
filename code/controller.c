@@ -306,6 +306,11 @@ static void link_devices(int child_id, int hub_id) {
         return;
     }
 
+    if (devices[child_idx].parent_id != -1) {
+        printf("Notice: Device %d is already linked to %d. Unlink it first.\n", child_id, devices[child_idx].parent_id);
+        return;
+    }
+
     //invia messaggio al figlio
     int fd_child = ipc_open_for_writing(child_id, devices[child_idx].type);
     if (fd_child != -1) {
@@ -445,7 +450,7 @@ static void remove_device(int id) {
         //solo se la fifo non è accessibile
         kill(pid, SIGKILL);
     }
-    
+
     remove_device_from_array(id);
     printf("Device ID: %d is removed\n\n", id);
     fflush(stdout);

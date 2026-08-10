@@ -95,21 +95,51 @@ void timer_run(TimerDevice *timer){
             //delete
             else if(strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
 
-                for(int i=0; i<timer->num_children; i++){
-                    int child_id = timer->children[i].id;
-                    DeviceType child_type = timer->children[i].type;
+                int sender_id = -1;
+                int sender_type = -1;
 
-                    int fd_child = ipc_open_for_writing(child_id,child_type);
-                    if(fd_child != -1){
-                        ipc_send_message(fd_child, CMD_DELETE);
+                if (timer->num_children > 0) {
+                    int child_id = timer->children[0].id;
+                    DeviceType child_type = timer->children[0].type;
+                    
+                    int fd_child = ipc_open_for_writing(child_id, child_type);
+                    if (fd_child != -1) {
+                        char cmd[64];
+                        snprintf(cmd, sizeof(cmd), "%s %d %d", CMD_DELETE, timer->id, DEVICE_TIMER);
+                        ipc_send_message(fd_child, cmd);
                         close(fd_child);
                     }
 
+                    //aspetta che i figli vengano eliminati
+                    int msg = 0;
+                    int timeout = 300;
+                    while (msg < 1 && timeout > 0) {
+                        char msg_buf[64];
+                        int n = ipc_read_line(fd_ascolto, msg_buf, sizeof(msg_buf));
+                        if (n > 0 && strncmp(msg_buf, "MSG", 3) == 0) {
+                            msg++;
+                        } else {
+                            usleep(10000);
+                            timeout--;
+                        }
+                    }
                 }
 
-                char msg[MAX_MSG_LEN];
-                snprintf(msg, sizeof(msg), "Timer %d and all its children deleted.", timer->id);
-                ipc_send_controller(STATUS_OK, msg);
+                //Rispondo a chi mi ha eliminato
+                if (sscanf(buffer, "%*s %d %d", &sender_id, &sender_type) == 2) {
+                    int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
+                    if (fd_parent != -1) {
+                        char msg[32];
+                        snprintf(msg, sizeof(msg), "MSG %d", timer->id);
+                        ipc_send_message(fd_parent, msg);
+                        close(fd_parent);
+                    }
+                } else {
+                    char msg[MAX_MSG_LEN];
+                    snprintf(msg, sizeof(msg), "Timer %d and all its children deleted.", timer->id);
+                    ipc_send_controller(STATUS_OK, msg);
+                }
+                
                 close(fd_ascolto);
                 exit(0);
 
