@@ -32,7 +32,7 @@ SISTEMARE SWITCH DEI DEVICES E HUB CON LA FIFO_CONTROLLER
 [✅] Hub: Segnalare stato "manual override" se i figli hanno stati discordanti.
 [✅] Timer: Implementare il "Mirroring" (interrogare via IPC i figli all'arrivo del comando INFO).
 [✅] Timer: Rimuovere 'delay', implementare i registri 'begin' ed 'end' (HH:MM) con validazione errori.
-[ ] Timer: Segnalare stato "manual override" se i figli hanno stati discordanti.
+[✅] Timer: Segnalare stato "manual override" se i figli hanno stati discordanti.
 
 
 === 4. INTERACTION DEVICES ===

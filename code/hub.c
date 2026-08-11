@@ -291,21 +291,60 @@ void hub_run(HubDevice *hub){
             //switch
             else if (strncmp(buffer, "SWITCH", 6) == 0) {
 
-                // Propagazione SWITCH a tutti i figli
+                char label[32], pos[32];
+                int sender_id = -1, sender_type = -1;
+
                 for (int i = 0; i < hub->num_children; i++) {
                     int child_id = hub->children[i].id;
                     DeviceType child_type = hub->children[i].type;
 
+                    //Traduzione del comando
+                    const char *out_label = label;
+                    if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
+                        if (strcmp(label, "power") == 0) out_label = "is_open";
+                    } else if (child_type == DEVICE_BULB) {
+                        if (strcmp(label, "is_open") == 0) out_label = "power";
+                    }
+
                     int fd_child = ipc_open_for_writing(child_id, child_type);
                     if (fd_child != -1) {
-                        ipc_send_message(fd_child, buffer);
+                        char cmd[64];
+                        snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, out_label, pos, hub->id, DEVICE_HUB);
+                        ipc_send_message(fd_child, cmd);
                         close(fd_child);
                     } 
                 }
 
-                char message[MAX_MSG_LEN];
-                snprintf(message, sizeof(message), "Hub %d Switch command cascaded to %d children.", hub->id, hub->num_children);
-                ipc_send_controller(STATUS_OK, message);
+                //aspetto che tutti i figli rispondano
+                int msg = 0;
+                int timeout = 300;
+                while (msg < hub->num_children && timeout > 0) {
+                    char msg_buf[64];
+                    int n = ipc_read_line(fd_ascolto, msg_buf, sizeof(msg_buf));
+                    if (n > 0 && strncmp(msg_buf, "MSG", 3) == 0) {
+                        msg++;
+                    } else {
+                        usleep(10000);
+                        timeout--;
+                    }
+                }
+                
+                int parse = sscanf(buffer, "%*s %s %s %d %d", label, pos, &sender_id, &sender_type);
+                // controllo se il messagio di switch è mandato dal controller oppure da un hub/timer cosi da dirgli che ho finito il mio lavoro
+                if ( parse >= 3) {
+                    int parent_type = (parse == 4) ? sender_type : DEVICE_HUB;
+                    int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)parent_type);
+                    if(fd_parent != -1) {
+                        char msg[32];
+                        snprintf(msg, sizeof(msg), "MSG %d", hub->id);
+                        ipc_send_message(fd_parent, msg);
+                        close(fd_parent);
+                    }
+                } else {
+                    char message[MAX_MSG_LEN];
+                    snprintf(message, sizeof(message), "Hub %d Switch command cascaded to %d children.", hub->id, hub->num_children);
+                    ipc_send_controller(STATUS_OK, message);
+                }
             }
             //INFO
             else if (strncmp(buffer, CMD_INFO, strlen(CMD_INFO)) == 0) {
