@@ -41,16 +41,36 @@ void window_run(Window *window) {
             //switch
             //TODO sistemare con fifo controller
             else if(strncmp(buffer, "SWITCH", 6) == 0) {
+                bool is_valid = true;
                 char label[32], pos[32];
                 sscanf(buffer, "SWITCH %s %s", label, pos);
 
                 if(strcmp(label, "is_open") == 0) {
-                    window->is_open = (strcmp(pos, "on") == 0);
+                    if (strcmp(pos, "on") == 0) {
+                        window->is_open = true;
+                    } else if (strcmp(pos, "off") == 0) {
+                        window->is_open = false;
+                    } else {
+                        is_valid = false;
+                    }
                 }
-                if(strcmp(label, "time") == 0) {
-                    window->time = atoi(pos);
+                else if(strcmp(label, "time") == 0) {
+                    int int_pos = atoi(pos);
+                    if (int_pos >= 0) {
+                        window->time = int_pos;
+                    } else {
+                        is_valid = false;
+                    }
                 }
-                printf("[Window %d] %s set to: %s\n", window->id, label, pos);
+
+                char message[MAX_MSG_LEN];
+                if(is_valid) {
+                    snprintf(message, sizeof(message), "Window %d, %s set to: %s\n", window->id, label, pos);
+                    ipc_send_controller(STATUS_OK, message);
+                } else {
+                    snprintf(message, sizeof(message), "Invalid position for %s.", label);
+                    ipc_send_controller(ERR_INVALID_PARAM, message);
+                }
                 fflush(stdout);
             }
             //info

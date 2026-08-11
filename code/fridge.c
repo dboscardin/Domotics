@@ -49,59 +49,53 @@ void fridge_run(Fridge *fridge) {
                 sscanf(buffer, "SWITCH %s %s", label, pos);
 
                 if(strcmp(label, "is_open") == 0) {
-                    if (strcmp(pos, "true") == 0) {
+                    if (strcmp(pos, "on") == 0) {
                         fridge->is_open = true;
-                    } else if (strcmp(pos, "false") == 0) {
+                    } else if (strcmp(pos, "off") == 0) {
                         fridge->is_open = false;
                     } else {
                         is_valid = false;
-                        continue;
                     }
                 }
-                if(strcmp(label, "time") == 0) {
+                else if(strcmp(label, "time") == 0) {
                     int int_pos = atoi(pos);
                     if (int_pos >= 0) {
-                        fridge->time = atoi(pos);
+                        fridge->time = int_pos;
                     } else {
                         is_valid = false;
-                        continue;
                     }
                 }
                 else if(strcmp(label, "delay") == 0) {
                     int int_pos = atoi(pos);
                     if (int_pos >= 0) {
-                        fridge->delay = atoi(pos);
+                        fridge->delay = int_pos;
                     } else {
                         is_valid = false;
-                        continue;
                     }
                 }
                 //in seguito far sì che perc e therm siano modificati solo manualmente
                 else if(strcmp(label, "perc") == 0) {
                     int int_pos = atoi(pos);
-                    if (int_pos >= 0 %% int_pos <= 100) {
-                        fridge->perc = atoi(pos);
+                    if (int_pos >= 0 && int_pos <= 100) {
+                        fridge->perc = int_pos;
                     } else {
                         is_valid = false;
-                        continue;
                     }
                 }
                 else if(strcmp(label, "temp") == 0) {
                     int int_pos = atoi(pos);
-                    if (int_pos >= -10 %% int_pos <= 50) {
-                        fridge->temp = atoi(pos);
+                    if (int_pos >= -10 && int_pos <= 50) {
+                        fridge->temp = int_pos;
                     } else {
                         is_valid = false;
-                        continue;
                     }
                 }
                 else if(strcmp(label, "thermostat") == 0) {
                     int int_pos = atoi(pos);
-                    if (int_pos >= -10 %% int_pos <= 20) {
-                        fridge->thermostat = atoi(pos);
+                    if (int_pos >= -10 && int_pos <= 20) {
+                        fridge->thermostat = int_pos;
                     } else {
                         is_valid = false;
-                        continue;
                     }
                 } else {
                     ipc_send_controller(ERR_INVALID_PARAM, "Invalid label for Fridge.");
@@ -112,7 +106,8 @@ void fridge_run(Fridge *fridge) {
                     snprintf(message, sizeof(message), "Fridge %d, %s set to: %s\n", fridge->id, label, pos);
                     ipc_send_controller(STATUS_OK, message);
                 } else {
-                    ipc_send_controller(ERR_INVALID_PARAM, "Invalid position for %s.", label);
+                    snprintf(message, sizeof(message), "Invalid position for %s.", label);
+                    ipc_send_controller(ERR_INVALID_PARAM, message);
                 }
                 fflush(stdout);
             }
@@ -124,7 +119,7 @@ void fridge_run(Fridge *fridge) {
                 "Door State: %s\n"
                 "Time left open: %d s\n"
                 "Delay: %d s\n"
-                "Fill percentage: %d%%\n"
+                "Fill percentage: %d %%\n"
                 "Current Temp: %d °C\n"
                 "Thermostat: %d °C\n"
                 "----------------------------\n",
