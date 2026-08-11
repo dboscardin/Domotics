@@ -2,10 +2,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <time.h>
 #include "bulb.h"
 #include "ipc.h"
 #include "protocol.h"
+#include "device.h"
 
 #define BUFFER_SIZE 50
 
@@ -59,24 +61,53 @@ void bulb_run(Bulb *bulb) {
             //switch
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
                 char label[32], pos[32];
-                sscanf(buffer, "%*s %s %s", label, pos);
+                int sender_id = -1; 
+                int sender_type = -1;
+                int parsed = sscanf(buffer, "%*s %s %s %d %d", label, pos, &sender_id, &sender_type);
 
                 if(strcmp(label, "power") == 0) {
+                    bool valid_pos = true;
                     if (strcmp(pos, "on") == 0) {
                         bulb->power = true;
                     } else if (strcmp(pos, "off") == 0) {
                         bulb->power = false;
                     } else {
-                        ipc_send_controller(ERR_INVALID_PARAM, "Invalid position for power.");
-                        continue;
+                        valid_pos = false;
                     }
 
-                    // Invia il messaggio al controller
-                    char message[MAX_MSG_LEN];
-                    snprintf(message, sizeof(message), "Bulb %d, Power set to: %s", bulb->id, bulb->power ? "ON" : "OFF");
-                    ipc_send_controller(STATUS_OK, message);
+                    if(parsed >= 4){
+                        //il comando viene da un genitore quindi non sporco la shell
+                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
+                        if (fd_parent != -1) {
+                            char msg[32];
+                            snprintf(msg, sizeof(msg), "MSG %d", bulb->id);
+                            ipc_send_message(fd_parent, msg);
+                            close(fd_parent);
+                        }
+                    } else {
+                        //comando dal controller
+                        if (valid_pos) {
+                            char message[MAX_MSG_LEN];
+                            snprintf(message, sizeof(message), "Bulb %d, Power set to: %s", bulb->id, bulb->power ? "on" : "off");
+                            ipc_send_controller(STATUS_OK, message);
+                        } else {
+                            ipc_send_controller(ERR_INVALID_PARAM, "Invalid position for power.");
+                        }
+                    }
                 } else {
-                    ipc_send_controller(ERR_INVALID_PARAM, "Invalid label for Bulb.");
+                    //se label non valido 
+                    if (parsed >= 4) {
+                        // Se ci ha chiamato un genitore dobbiamo comunque sbloccarlo
+                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
+                        if (fd_parent != -1) {
+                            char msg[32];
+                            snprintf(msg, sizeof(msg), "MSG %d", bulb->id);
+                            ipc_send_message(fd_parent, msg);
+                            close(fd_parent);
+                        }
+                    } else {
+                        ipc_send_controller(ERR_INVALID_PARAM, "Invalid label for Bulb.");
+                    }
                 }
             }
             //Info
