@@ -23,9 +23,9 @@ SISTEMARE SWITCH DEI DEVICES E HUB CON LA FIFO_CONTROLLER
 [✅] IPC: Usare le macro di protocol.h (es. ERR_DEVICE_NOT_FOUND) e inviare la risposta tramite la FIFO del Controller.
 
 === 2. GERARCHIA & ROUTING ===
-[ ] Controller (LINK): Inviare due messaggi IPC (SET_PARENT al figlio, LINK_CHILD al padre).
-[ ] Controller (LINK): Aggiungere controlli anti-ciclo e impedire collegamenti a se stessi.
-[ ] Controller (DEL): Rimuovere la funzione ricorsiva remove_children_from_hub (DELETE solo al target, l'Hub propaga, SIGCHLD ripulisce l'array).
+[✅] Controller (LINK): Inviare due messaggi IPC (SET_PARENT al figlio, LINK_CHILD al padre).
+[✅] Controller (LINK): Aggiungere controlli anti-ciclo e impedire collegamenti a se stessi.
+[✅] Controller (DEL): Rimuovere la funzione ricorsiva remove_children_from_hub (DELETE solo al target, l'Hub propaga, SIGCHLD ripulisce l'array).
 
 === 3. CONTROL DEVICES - Hub & Timer ===
 [ ] Hub/Timer: Implementare il "Mirroring" (interrogare via IPC i figli all'arrivo del comando INFO).
@@ -37,6 +37,3 @@ SISTEMARE SWITCH DEI DEVICES E HUB CON LA FIFO_CONTROLLER
 [ ] Window: Switch a "molla" (comandi open/close aprono/chiudono ma lo switch torna istantaneamente off).
 [ ] Fridge: Bloccare le modifiche di 'perc' e 'thermostat' da Controller (consentite solo via script).
 [ ] Fridge: Implementare l'auto-chiusura della porta basata sul registro 'delay'.
-
-
-
