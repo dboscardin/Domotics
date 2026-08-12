@@ -24,15 +24,20 @@
 #define MAX_DEVICES 50
 #define MAX_TOKENS 10
 
+#define CONTROLLER_ID 0
+
 //veriabile globale per controllare il ciclo di un thread
 static volatile int running = 1;
 static pthread_mutex_t mutex;
 static pthread_cond_t sync_cond;
 static volatile bool response_received = false;
 
+static bool controller_state = true;
+
 static DeviceInfo devices[MAX_DEVICES];
 static int device_count = 0;    //conta dispositivi attuali
-static int curr_id = 0;         //assegna un id che non decrementa all'eliminazione
+//parte da 1 perchè 0 è riservato al controller
+static int curr_id = 1;         //assegna un id che non decrementa all'eliminazione
 //devo averne due per evitare conflitti causa eliminazione
 
 static void devices_list(void);
@@ -51,6 +56,7 @@ static void unlink_device(int child_id,int hub_id);
 static void unlink_children_from_timer(int parent_id);
 static void remove_device_from_array(int id);
 static void remove_children_from_hub(int parent_id);
+static int count_direct_children(int parent_id);
 
 static const char *device_type_to_string(DeviceType type) {
     switch (type) {
@@ -64,9 +70,23 @@ static const char *device_type_to_string(DeviceType type) {
     }
 }
 
+// ritorna numero di device di un padre
+static int count_direct_children(int parent_id) {
+    int count = 0;
+    for (int i = 0; i < device_count; i++) {
+        if (devices[i].id != CONTROLLER_ID && devices[i].parent_id == parent_id) {
+            count++;
+        }
+    }
+    return count;
+}
+
 // Funzione per terminare tutti i processi figli
 static void cleanup_all_devices(void) {
     for (int i = 0; i < device_count; i++) {
+        if (devices[i].fifo_fd == CONTROLLER_ID) {
+            continue;
+        }
         if (devices[i].fifo_fd != -1) {
             close(devices[i].fifo_fd);
         }
@@ -96,6 +116,9 @@ static void handle_sigchld(int sig) {
 
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
         for (int i = 0; i < device_count; i++) {
+            if (devices[i].id == CONTROLLER_ID) {
+                continue; 
+            }
             if (devices[i].pid == pid) {
                 if (devices[i].fifo_fd != -1) {
                     close(devices[i].fifo_fd);
@@ -132,20 +155,18 @@ static int read_line(char *buffer, size_t size) {
 }
 
 static void devices_list(void) {
-    if(device_count == 0)
-        printf("No devices yet\n");
-    else {
-        for (int i = 0; i < device_count; i++)
-        {
-            printf("%d --> Id=%d, Pid=%d, Type=%s, ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
-            if(devices[i].parent_id == -1){
-                printf("Linked: NO\n");
-            } else {
-                printf("Linked to ID: %d\n", devices[i].parent_id);
-            }
+    for (int i = 0; i < device_count; i++)
+    {
+        printf("%d --> Id=%d, Pid=%d, Type=%s, ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+        if(devices[i].parent_id == CONTROLLER_ID){
+            printf("Root service\n");
+        } else if(devices[i].parent_id == -1){
+            printf("Linked to: Controller\n");
+        } else {
+            printf("Linked to ID: %d\n", devices[i].parent_id);
         }
-        printf("\n");
     }
+    printf("\n");
 }
 
 static void add_device(char* device) {
@@ -216,7 +237,7 @@ static void add_device(char* device) {
     devices[device_count].id = curr_id;
     devices[device_count].pid = pid;
     devices[device_count].type = type;
-    devices[device_count].parent_id = -1;
+    devices[device_count].parent_id = CONTROLLER_ID;
     devices[device_count].fifo_fd = -1;
 
     usleep(50000); //50ms
@@ -323,16 +344,18 @@ static void link_devices(int child_id, int hub_id) {
         return;
     }
 
-    //invia messaggio al padre
-    int fd_parent = ipc_open_for_writing(hub_id, devices[hub_idx].type);
-    if (fd_parent != -1) {
-        char msg_parent[64];
-        snprintf(msg_parent, sizeof(msg_parent), "LINK_CHILD %d %d", child_id, devices[child_idx].type);
-        ipc_send_message(fd_parent, msg_parent);
-        close(fd_parent);
-    } else {
-        printf("Error: failed to connect to parent %d FIFO.\n\n", hub_id);
-        return;
+    //invia messaggio al padre 
+    if (hub_id != CONTROLLER_ID) {
+        int fd_parent = ipc_open_for_writing(hub_id, devices[hub_idx].type);
+        if (fd_parent != -1) {
+            char msg_parent[64];
+            snprintf(msg_parent, sizeof(msg_parent), "LINK_CHILD %d %d", child_id, devices[child_idx].type);
+            ipc_send_message(fd_parent, msg_parent);
+            close(fd_parent);
+        } else {
+            printf("Error: failed to connect to parent %d FIFO.\n\n", hub_id);
+            return;
+        }
     }
 
     devices[child_idx].parent_id = hub_id;
@@ -371,7 +394,7 @@ static void unlink_device(int child_id,int hub_id){
     if (fd != -1) {
         ipc_send_message(fd, msg);
         close(fd);
-        devices[child_idx].parent_id = -1;
+        devices[child_idx].parent_id = CONTROLLER_ID;
         usleep(50000); // 50ms
     } else {
         printf("Error: failed to connect to Hub %d FIFO.\n\n", hub_id);
@@ -381,7 +404,7 @@ static void unlink_device(int child_id,int hub_id){
 static void unlink_children_from_timer(int parent_id){
     for(int i=0; i<device_count; i++){
         if(devices[i].parent_id == parent_id){
-            devices[i].parent_id=-1;
+            devices[i].parent_id = CONTROLLER_ID;
         }
     }
 }
@@ -437,6 +460,10 @@ static void remove_children_from_hub(int parent_id) {
 }
 
 static void remove_device(int id) {
+    if (id == CONTROLLER_ID) {
+        printf("Error: the Controller cannot be deleted.\n\n");
+        return;
+    }
     int index = find_device_by_id(id);
     if (index == -1) {
         printf("No device with this Id.\n\n");
@@ -523,6 +550,16 @@ static bool switch_check(char *tokens[], int count) {
 
 static void switch_device(char *tokens[]) {
     int id = parse_id(tokens[1]);
+
+    if (id == CONTROLLER_ID) {
+        if (strcmp(tokens[2], "main") != 0) {
+            printf("Error: the Controller only supports the 'main' switch.\n\n");
+            return;
+        }
+        controller_state = (strcmp(tokens[3], "on") == 0);
+        printf("Controller main switch set to: %s\n\n", controller_state ? "on" : "off");
+        return;
+    }
     int index = find_device_by_id(id);
     if(index == -1) return;
 
@@ -549,6 +586,22 @@ static void switch_device(char *tokens[]) {
 }
 
 static void device_info(int id) {
+    if (id == CONTROLLER_ID) {
+        int num = count_direct_children(CONTROLLER_ID);
+        printf(
+            "\n------- Controller Details -----\n"
+            "ID: %d\n"
+            "State: %s\n"
+            "Switches: main=%s\n"
+            "Registry: num=%d\n"
+            "----------------------------\n\n",
+            CONTROLLER_ID,
+            controller_state ? "On" : "Off",
+            controller_state ? "on" : "off",
+            num
+        );
+        return;
+    }
     int index = find_device_by_id(id);
     if (index == -1){
         printf("Device ID: %d not found\n\n", id);
@@ -571,9 +624,6 @@ static void device_info(int id) {
     } else {
         printf("Error: failed to communicate with device ID: %d\n\n ", id);
     }
-
-
-
 }
 
 static void commands(void) {
@@ -667,6 +717,14 @@ void controller_run(void) {
 
     pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&sync_cond, NULL);
+
+    //registrazione controller come device
+    devices[device_count].id = CONTROLLER_ID;
+    devices[device_count].pid = getpid();
+    devices[device_count].type = DEVICE_CONTROLLER;
+    devices[device_count].parent_id = -1; // il Controller è la radice: non ha un parent
+    devices[device_count].fifo_fd = -1;
+    device_count++;
 
     //thread
     pthread_t listener_td;
