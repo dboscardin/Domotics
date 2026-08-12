@@ -12,6 +12,10 @@
 #define ERR_INVALID_PARAM          7
 #define ERR_CYCLE_DETECTED         8
 #define ERR_NOT_FOUND              9
+#define ERR_SELF_LINK              10
+#define ERR_TIMEOUT                11
+#define ERR_RESOURCE_ERROR         12
+#define ERR_PERMISSION_ERROR       13
 
 //COMMAND
 #define CMD_INFO            "INFO"

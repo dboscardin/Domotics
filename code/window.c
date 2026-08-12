@@ -13,7 +13,7 @@
 Window create_window_struct(int id) {
     Window window = {
         .id = id,
-        .parent_id = CONTROLLER_ID;
+        .parent_id = CONTROLLER_ID,
         .is_open = false,
         .time = 0
     };

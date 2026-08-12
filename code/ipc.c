@@ -43,6 +43,10 @@ int ipc_open_for_writing(int id, DeviceType type) {
 }
 
 int ipc_read_line(int fd, char *buffer, size_t size) {
+    /* Nota: la FIFO garantisce atomicità per messaggi sotto PIPE_BUF (4096 byte su Linux),
+     * quindi ogni singolo write() produce un read() completo purché i messaggi siano
+     * scritti in un'unica write() e rimangano sotto il limite. Messaggi più grandi
+     * possono essere spezzati. In questo progetto tutti i messaggi sono ben sotto PIPE_BUF. */
     ssize_t n = read(fd, buffer, size - 1);
     
     if (n > 0) {
@@ -88,7 +92,10 @@ void ipc_send_controller(int status_code, const char *message){
             snprintf(buffer,sizeof(buffer), RESP_FORMAT_NO_PAYLOAD, status_code);
         }
 
-        write(fd, buffer,strlen(buffer));
+        ssize_t written = write(fd, buffer, strlen(buffer));
+        if (written == -1) {
+            perror("ipc_send_controller: write");
+        }
         close(fd);
     }
 }
