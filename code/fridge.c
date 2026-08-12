@@ -13,7 +13,7 @@
 Fridge create_fridge_struct(int id) {
     Fridge fridge = {
         .id = id,
-        .parent_id = CONTROLLER_ID;
+        .parent_id = CONTROLLER_ID,
         .is_open = false,
         .time = 0,
         .delay = 60, //60s

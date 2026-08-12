@@ -509,28 +509,58 @@ static void remove_device(int id) {
     remove_device_from_array(id);
     printf("Device ID: %d is removed\n\n", id);
     fflush(stdout);
-
-    sigprocmask(SIG_SETMASK, &oldmask, NULL);
 }
+static bool label_valid_for_type(DeviceType type, const char *label) {
+    switch(type) {
+        case DEVICE_CONTROLLER:
+            return strcmp(label, "main") == 0;
+        case DEVICE_BULB:
+            return strcmp(label, "power") == 0;
+        case DEVICE_WINDOW:
+            return strcmp(label, "open") == 0 || strcmp(label, "close") == 0;
+        case DEVICE_FRIDGE:
+            return strcmp(label, "open")       == 0 ||
+                strcmp(label, "close")      == 0 ||
+                strcmp(label, "delay")      == 0 ||
+                strcmp(label, "perc")       == 0 ||
+                strcmp(label, "temp")       == 0 ||
+                strcmp(label, "thermostat") == 0;
+        case DEVICE_HUB:
+        case DEVICE_TIMER:
+            // tutto
+            return true;
+        default:
+            return false;
+    }
+}
+
 static bool switch_check(char *tokens[], int count) {
-    //check array size
-    if(count != 4) return false; 
-    //check if it's  valid ID
-    if(parse_id(tokens[1]) == -1) return false;
-    //check if it works on a right attribute 
+    if (count != 4) return false;
+    int id = parse_id(tokens[1]);
+    if (id == -1) return false;
+    int idx = find_device_by_id(id);
+    if (idx == -1) return false;
+
+    if (!label_valid_for_type(devices[idx].type, tokens[2])) {
+        printf("Error: label '%s' is not valid for device type %s.\n",
+            tokens[2], device_type_to_string(devices[idx].type));
+        return false;
+    }
+
     struct {
         const char *label;
         bool is_bool;
     } registers[] = {
-        {"power", true},
-        {"is_open", true},
-        {"time", false},
-        {"delay", false},
-        {"perc", false},
-        {"temp", false},
-        {"thermostat", false},
-        {"begin", false},
-        {"end", false}
+        {"power",       true},
+        {"open",        true},
+        {"close",       true},
+        {"time",        false},
+        {"delay",       false},
+        {"perc",        false},
+        {"temp",        false},
+        {"thermostat",  false},
+        {"begin",       false},
+        {"end",         false}
     };
 
     for(size_t i = 0; i < sizeof(registers) / sizeof(registers[0]); i++) {
@@ -545,9 +575,7 @@ static bool switch_check(char *tokens[], int count) {
                 }
 
                 char *endptr;
-                //tries to convert in int
                 strtol(tokens[3], &endptr, 10);
-                //se endptr punta alla fine, tutta la stringa era un numero
                 return endptr != tokens[3] && *endptr == '\0';
             }
         }

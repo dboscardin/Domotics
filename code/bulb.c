@@ -14,7 +14,7 @@
 Bulb create_bulb_struct(int id) {
     Bulb bulb = {
         .id = id,
-        .parent_id = CONTROLLER_ID;
+        .parent_id = CONTROLLER_ID,
         .power = false,
         .time = 0
     };
@@ -114,7 +114,7 @@ void bulb_run(Bulb *bulb) {
                 char message[MAX_MSG_LEN];
                 char parent[32];
 
-                format_parent_string(window->parent_id, parent, sizeof(parent));
+                format_parent_string(bulb->parent_id, parent, sizeof(parent));
 
                 snprintf(message,sizeof(message),
                 "\n-------- Bulb Details ------\n"
