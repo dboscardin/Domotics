@@ -150,7 +150,7 @@ void bulb_run(Bulb *bulb) {
 
             }
             else {
-                ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
+                ipc_send_controller(ERR_INVALID_COMMAND, " Bulb unknown command.");
             }
 
         } else {

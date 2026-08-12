@@ -202,7 +202,7 @@ void fridge_run(Fridge *fridge) {
 
             }
             else {
-                ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
+                ipc_send_controller(ERR_INVALID_COMMAND, "Fridge unknown command.");
             }
         } else {
             usleep(50000); // il processo consuma meno risorse

@@ -96,7 +96,7 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
 
     //Aspetto le risposte dai figli
     int received = 0;
-    int timeout = 300; 
+    int timeout = 1000; 
 
     while (received < hub->num_children && timeout > 0) {
         char buf[4096];
@@ -260,7 +260,7 @@ void hub_run(HubDevice *hub){
                 }
 
                 int deleted = 0;
-                int timeout = 300; //timer per evitare di stare nel loop in caso un figlio sia crashato
+                int timeout = 1000; //timer per evitare di stare nel loop in caso un figlio sia crashato
                 while (deleted < hub->num_children && timeout > 0) {
                     char deleted_buf[64];
                     int n = ipc_read_line(fd_ascolto, deleted_buf, sizeof(deleted_buf));
@@ -283,8 +283,12 @@ void hub_run(HubDevice *hub){
                     }
                 } else {
                     char msg[MAX_MSG_LEN];
-                    snprintf(msg,sizeof(msg), "Hub %d and all its children deleted.", hub->id);
-                    ipc_send_controller(STATUS_OK,msg); 
+                    int offset = 0;
+                    offset += snprintf(msg + offset, sizeof(msg) - offset, "Hub %d and all its children deleted.\n", hub->id);
+                    for(int i = 0; i < hub->num_children; i++){
+                        offset += snprintf(msg + offset, sizeof(msg) - offset, "Device %s %d deleted.\n", get_device_type_name(hub->children[i].type), hub->children[i].id);
+                    }
+                    ipc_send_controller(STATUS_OK, msg); 
                 }
 
                 close(fd_ascolto);
@@ -318,7 +322,7 @@ void hub_run(HubDevice *hub){
 
                 //aspetto che tutti i figli rispondano
                 int msg = 0;
-                int timeout = 300;
+                int timeout = 1000;
                 while (msg < hub->num_children && timeout > 0) {
                     char msg_buf[64];
                     int n = ipc_read_line(fd_ascolto, msg_buf, sizeof(msg_buf));
@@ -333,8 +337,7 @@ void hub_run(HubDevice *hub){
                 
                 // controllo se il messagio di switch è mandato dal controller oppure da un hub/timer cosi da dirgli che ho finito il mio lavoro
                 if ( parsed >= 3) {
-                    int parent_type = (parsed == 4) ? sender_type : DEVICE_HUB;
-                    int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)parent_type);
+                    int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                     if(fd_parent != -1) {
                         char msg[32];
                         snprintf(msg, sizeof(msg), "MSG %d", hub->id);
@@ -410,7 +413,7 @@ void hub_run(HubDevice *hub){
                     }
                 }
             } else {
-                ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
+                ipc_send_controller(ERR_INVALID_COMMAND, "Hub unknown command.");
             }
             
 

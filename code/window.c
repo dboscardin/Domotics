@@ -47,7 +47,7 @@ void window_run(Window *window) {
                     }
                 } else {
                     char msg[MAX_MSG_LEN];
-                    snprintf(msg,sizeof(msg),"Device Bulb %d deleted.", window->id );
+                    snprintf(msg,sizeof(msg),"Device Window %d deleted.", window->id );
                     ipc_send_controller(STATUS_OK, msg);
                     
                 }
@@ -55,11 +55,13 @@ void window_run(Window *window) {
                 exit(0);
             }
             //switch
-            //TODO sistemare con fifo controller
-            else if(strncmp(buffer, "SWITCH", 6) == 0) {
+            else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
                 bool is_valid = true;
+                bool handled = false;
                 char label[32], pos[32];
-                sscanf(buffer, "SWITCH %s %s", label, pos);
+                int sender_id = -1;
+                int sender_type = -1;
+                int parsed = sscanf(buffer, "%*s %s %s %d %d", label, pos, &sender_id, &sender_type);
 
                 if(strcmp(label, "is_open") == 0) {
                     if (strcmp(pos, "on") == 0) {
@@ -69,6 +71,7 @@ void window_run(Window *window) {
                     } else {
                         is_valid = false;
                     }
+                    handled = true;
                 }
                 else if(strcmp(label, "time") == 0) {
                     int int_pos = atoi(pos);
@@ -77,17 +80,44 @@ void window_run(Window *window) {
                     } else {
                         is_valid = false;
                     }
+                    handled = true;
                 }
 
-                char message[MAX_MSG_LEN];
-                if(is_valid) {
-                    snprintf(message, sizeof(message), "Window %d, %s set to: %s\n", window->id, label, pos);
-                    ipc_send_controller(STATUS_OK, message);
+                if (handled) {
+                    if(parsed >= 4){
+                        // Il comando viene da un genitore
+                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
+                        if(fd_parent != -1){
+                            char msg[MAX_MSG_LEN];
+                            snprintf(msg, sizeof(msg), "MSG %d", window->id);
+                            ipc_send_message(fd_parent, msg);
+                            close(fd_parent); 
+                        }
+                    } else {
+                        // Comando dal controller
+                        char message[MAX_MSG_LEN];
+                        if(is_valid) {
+                            snprintf(message, sizeof(message), "Window %d, %s set to: %s", window->id, label, pos);
+                            ipc_send_controller(STATUS_OK, message);
+                        } else {
+                            snprintf(message, sizeof(message),"Invalid position for %s.", label);
+                            ipc_send_controller(ERR_INVALID_PARAM, message);
+                        }
+                    }
                 } else {
-                    snprintf(message, sizeof(message), "Invalid position for %s.", label);
-                    ipc_send_controller(ERR_INVALID_PARAM, message);
+                    // Se la label non è valida
+                    if (parsed >= 4) {
+                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
+                        if (fd_parent != -1) {
+                            char msg[MAX_MSG_LEN];
+                            snprintf(msg, sizeof(msg), "MSG %d", window->id);
+                            ipc_send_message(fd_parent, msg);
+                            close(fd_parent);
+                        }
+                    } else {
+                        ipc_send_controller(ERR_INVALID_PARAM, "Invalid label for Window.");
+                    }
                 }
-                fflush(stdout);
             }
             //info
             else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){
@@ -129,7 +159,7 @@ void window_run(Window *window) {
 
             } 
             else {
-                ipc_send_controller(ERR_INVALID_COMMAND, "Unkown command.");
+                ipc_send_controller(ERR_INVALID_COMMAND, " Window unknown command.");
             }
         } else {
         usleep(50000); // il processo consuma meno risorse

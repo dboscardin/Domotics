@@ -54,7 +54,7 @@ static void get_timer_state(TimerDevice *timer, int fd_ascolto, char *out_state,
         close(fd_child);
     }
 
-    int timeout = 300; 
+    int timeout = 1000; 
     while (timeout > 0) {
         char buf[4096];
         if (ipc_read_line(fd_ascolto, buf, sizeof(buf)) > 0) {
@@ -121,7 +121,7 @@ void timer_run(TimerDevice *timer){
 
                     //aspetto un risposta dal figlio
                     int msg = 0;
-                    int timeout = 300;
+                    int timeout = 1000;
                     while (msg < 1 && timeout > 0) {
                         char msg_buf[64];
                         int n = ipc_read_line(fd_ascolto, msg_buf, sizeof(msg_buf));
@@ -148,7 +148,7 @@ void timer_run(TimerDevice *timer){
 
                     //aspetto un risposta dal figlio
                     int msg = 0;
-                    int timeout = 300;
+                    int timeout = 1000;
                     while (msg < 1 && timeout > 0) {
                         char msg_buf[64];
                         int n = ipc_read_line(fd_ascolto, msg_buf, sizeof(msg_buf));
@@ -273,12 +273,11 @@ void timer_run(TimerDevice *timer){
                     }
                     
                     if (parsed >= 3) {
-                        int parent_type = (parsed == 4) ? sender_type : DEVICE_HUB;
-                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)parent_type);
+                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if(fd_parent != -1) {
-                            char msg[32];
-                            snprintf(msg, sizeof(msg), "MSG %d", timer->id);
-                            ipc_send_message(fd_parent, msg);
+                            char cmd[32];
+                            snprintf(cmd, sizeof(cmd), "MSG %d", timer->id);
+                            ipc_send_message(fd_parent, cmd);
                             close(fd_parent);
                         }
                     }
@@ -303,7 +302,7 @@ void timer_run(TimerDevice *timer){
                         }
                         
                         int msg = 0;
-                        int timeout = 300;
+                        int timeout = 1000;
                         while (msg < 1 && timeout > 0) {
                             char msg_buf[64];
                             int n = ipc_read_line(fd_ascolto, msg_buf, sizeof(msg_buf));
@@ -316,8 +315,7 @@ void timer_run(TimerDevice *timer){
                     }
 
                     if (parsed >= 3) {
-                        int parent_type = (parsed == 4) ? sender_type : DEVICE_HUB;
-                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)parent_type);
+                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if(fd_parent != -1) {
                             char ack[32];
                             snprintf(ack, sizeof(ack), "MSG %d", timer->id);
@@ -350,7 +348,7 @@ void timer_run(TimerDevice *timer){
 
                     //aspetta che i figli vengano eliminati
                     int deleted = 0;
-                    int timeout = 300;
+                    int timeout = 1000;
                     while (deleted < 1 && timeout > 0) {
                         char deleted_buf[64];
                         int n = ipc_read_line(fd_ascolto, deleted_buf, sizeof(deleted_buf));
@@ -374,7 +372,11 @@ void timer_run(TimerDevice *timer){
                     }
                 } else {
                     char msg[MAX_MSG_LEN];
-                    snprintf(msg, sizeof(msg), "Timer %d and all its children deleted.", timer->id);
+                    int offset = 0;
+                    offset += snprintf(msg + offset, sizeof(msg) - offset, "Timer %d and all its children deleted.\n", timer->id);
+                    if (timer->num_children > 0) {
+                        offset += snprintf(msg + offset, sizeof(msg) - offset, "Device %s %d deleted.\n", get_device_type_name(timer->children[0].type), timer->children[0].id);
+                    }
                     ipc_send_controller(STATUS_OK, msg);
                 }
                 
@@ -426,13 +428,13 @@ void timer_run(TimerDevice *timer){
                     int fd_parent = ipc_open_for_writing(p_sender_id, p_sender_type);
                     if (fd_parent != -1) {
                         char resp[MAX_MSG_LEN];
-                        snprintf(resp, sizeof(resp), "%s %d %s", CMD_MIRROR_RESP, timer->id, child_state);
+                        snprintf(resp, sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, timer->id, child_state);
                         ipc_send_message(fd_parent, resp);
                         close(fd_parent);
                     }
                 }
             } else {
-                ipc_send_controller(ERR_INVALID_COMMAND,"Unkown command.");
+                ipc_send_controller(ERR_INVALID_COMMAND,"Timer unknown command.");
             }
         } else{
             usleep(50000);
