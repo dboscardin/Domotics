@@ -157,10 +157,10 @@ static void devices_list(void) {
     for (int i = 0; i < device_count; i++)
     {
         printf("%d --> Id=%d, Pid=%d, Type=%s, ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
-        if(devices[i].parent_id == CONTROLLER_ID){
+        if(devices[i].parent_id == -1){
             printf("Root service\n");
-        } else if(devices[i].parent_id == -1){
-            printf("Linked to: Controller\n");
+        } else if(devices[i].parent_id == CONTROLLER_ID){
+            printf("Linked to Controller\n");
         } else {
             printf("Linked to ID: %d\n", devices[i].parent_id);
         }
@@ -302,11 +302,6 @@ static void link_devices(int child_id, int hub_id) {
     }
     int child_idx = find_device_by_id(child_id);
     int hub_idx = find_device_by_id(hub_id);
-
-    if(creates_cycle(child_id, hub_id)) {
-        printf("Error: this link would create a cycle in the hierarchy.\n\n");
-        return;
-    }
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);

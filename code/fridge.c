@@ -51,7 +51,7 @@ void fridge_run(Fridge *fridge) {
                     }
                 } else {
                     char msg[MAX_MSG_LEN];
-                    snprintf(msg,sizeof(msg),"Device Bulb %d deleted.", fridge->id );
+                    snprintf(msg,sizeof(msg),"Device Fridge %d deleted.", fridge->id );
                     ipc_send_controller(STATUS_OK, msg);
                     
                 }
@@ -155,7 +155,7 @@ void fridge_run(Fridge *fridge) {
                             close(fd_parent);
                         }
                     } else {
-                        ipc_send_controller(ERR_INVALID_PARAM, "Invalid label for Bulb.");
+                        ipc_send_controller(ERR_INVALID_PARAM, "Invalid label for Fridge.");
                     }
                 }
             }
