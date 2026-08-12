@@ -138,7 +138,7 @@ void bulb_run(Bulb *bulb) {
                 if(sscanf(buffer, "%*s %d %d", &sender_id, &sender_type) == 2){
 
                     //apro fifo hub in scrittura
-                    int fd_sender = ipc_open_for_writing(sender_id, sender_type);
+                    int fd_sender = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
 
                     if(fd_sender != -1 ){  
                         char resp[MAX_MSG_LEN];

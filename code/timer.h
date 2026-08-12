@@ -17,7 +17,6 @@ typedef struct {
 
 
 TimerDevice create_timer_struct(int id);
-static void get_timer_state(TimerDevice *timer, int fd_ascolto, char *out_state, size_t state_len);
 void timer_run(TimerDevice *timer);
 void create_timer(int id);
 

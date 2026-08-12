@@ -86,7 +86,85 @@ void timer_run(TimerDevice *timer){
     int fd_ascolto = ipc_open_for_listening(timer->id,DEVICE_TIMER);
     char buffer[BUFFER_SIZE];
 
+    char last_triggered[6] = ""; //serve per non mandare il comando di switch un sacco di volte e far ricordare al timer che l'ha già mandato
+
     while(1){
+
+
+        //logica timer
+
+        time_t rawtime;
+        struct tm *timeinfo;
+        char current_time[6];
+        time(&rawtime);
+        timeinfo = localtime(&rawtime);
+        strftime(current_time,sizeof(current_time), "%H:%M", timeinfo);
+        
+
+        if(timer->num_children > 0 && strlen(timer->begin) > 0 && strlen(timer->end) > 0){
+            int child_id = timer->children[0].id;
+            DeviceType child_type = timer->children[0].type;
+
+            //controllo il device
+            const char *label = "power";
+            if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
+                label = "is_open";
+            }
+
+            if (strcmp(current_time, timer->begin) == 0 && strcmp(last_triggered, timer->begin) != 0) {
+                int fd_child = ipc_open_for_writing(child_id, child_type);
+                if (fd_child != -1) {
+                    char cmd[64];
+                    snprintf(cmd, sizeof(cmd), "%s %s on %d %d", CMD_SWITCH, label, timer->id, DEVICE_TIMER);
+                    ipc_send_message(fd_child, cmd); 
+                    close(fd_child);
+
+                    //aspetto un risposta dal figlio
+                    int msg = 0;
+                    int timeout = 300;
+                    while (msg < 1 && timeout > 0) {
+                        char msg_buf[64];
+                        int n = ipc_read_line(fd_ascolto, msg_buf, sizeof(msg_buf));
+                        if (n > 0 && strncmp(msg_buf, "MSG", 3) == 0) msg++;
+                        else { usleep(10000); timeout--; }
+                    }
+
+                    //notifico il controller
+                    char alert[MAX_MSG_LEN];
+                    snprintf(alert, sizeof(alert), "\nTimer %d automatically switched its device on at %s", timer->id, current_time);
+                    ipc_send_controller(STATUS_OK, alert);
+
+                }
+                snprintf(last_triggered, sizeof(last_triggered), "%s", current_time);
+
+            } 
+            else if (strcmp(current_time, timer->end) == 0 && strcmp(last_triggered, timer->end) != 0) {
+                int fd_child = ipc_open_for_writing(child_id, child_type);
+                if (fd_child != -1) {
+                    char cmd[64];
+                    snprintf(cmd, sizeof(cmd), "%s %s off %d %d", CMD_SWITCH, label, timer->id, DEVICE_TIMER);
+                    ipc_send_message(fd_child, cmd);
+                    close(fd_child);
+
+                    //aspetto un risposta dal figlio
+                    int msg = 0;
+                    int timeout = 300;
+                    while (msg < 1 && timeout > 0) {
+                        char msg_buf[64];
+                        int n = ipc_read_line(fd_ascolto, msg_buf, sizeof(msg_buf));
+                        if (n > 0 && strncmp(msg_buf, "MSG", 3) == 0) msg++;
+                        else { usleep(10000); timeout--; }
+                    }
+
+                    //notifico il controller
+                    char alert[MAX_MSG_LEN];
+                    snprintf(alert, sizeof(alert), "\nTimer %d automatically switched its device OFF at %s", timer->id, current_time);
+                    ipc_send_controller(STATUS_OK, alert);
+                }
+                snprintf(last_triggered, sizeof(last_triggered), "%s", current_time);
+            }
+        }
+
 
         int bytes_letti = ipc_read_line(fd_ascolto,buffer,sizeof(buffer));
 
@@ -151,7 +229,105 @@ void timer_run(TimerDevice *timer){
             }
             //switch
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0){
+                char label[32], pos[32];
+                int sender_id = -1, sender_type = -1;
+                int parsed = sscanf(buffer, "%*s %s %s %d %d", label, pos, &sender_id, &sender_type);
 
+                if (strcmp(label, "begin") == 0 || strcmp(label, "end") == 0) {
+                    int h, m;
+                    if (sscanf(pos, "%d:%d", &h, &m) == 2 && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+
+                        //prendo lora attuale per vedere se è passato
+                        time_t rawtime; struct tm *timeinfo; char current_time[6];
+                        time(&rawtime); timeinfo = localtime(&rawtime);
+                        strftime(current_time, sizeof(current_time), "%H:%M", timeinfo);
+
+                        bool valid = true;
+                        char err_msg[64] = "";
+
+
+                        if (strcmp(pos, current_time) < 0) {
+                            valid = false;
+                            snprintf(err_msg, sizeof(err_msg), "Error: Time %s is in the past!", pos);
+                        } else if (strcmp(label, "begin") == 0 && strlen(timer->end) > 0 && strcmp(pos, timer->end) >= 0) {
+                            valid = false;
+                            snprintf(err_msg, sizeof(err_msg), "Error: Begin time cannot be >= End time.");
+                        } else if (strcmp(label, "end") == 0 && strlen(timer->begin) > 0 && strcmp(timer->begin, pos) >= 0) {
+                            valid = false;
+                            snprintf(err_msg, sizeof(err_msg), "Error: End time cannot be <= Begin time.");
+                        }
+
+                        if(valid){
+                            if (strcmp(label, "begin") == 0) {
+                                snprintf(timer->begin, sizeof(timer->begin), "%02d:%02d", h, m);
+                                if (parsed < 3) ipc_send_controller(STATUS_OK, "Timer begin set.");
+                            } else {
+                                snprintf(timer->end, sizeof(timer->end), "%02d:%02d", h, m);
+                                if (parsed < 3) ipc_send_controller(STATUS_OK, "Timer end set.");
+                            }
+                        } else {
+                            if (parsed < 3) ipc_send_controller(ERR_INVALID_PARAM, err_msg);
+                        }
+                    } else {
+                        if (parsed < 3) ipc_send_controller(ERR_INVALID_PARAM, "Invalid time format! Use HH:MM.");
+                    }
+                    
+                    if (parsed >= 3) {
+                        int parent_type = (parsed == 4) ? sender_type : DEVICE_HUB;
+                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)parent_type);
+                        if(fd_parent != -1) {
+                            char msg[32];
+                            snprintf(msg, sizeof(msg), "MSG %d", timer->id);
+                            ipc_send_message(fd_parent, msg);
+                            close(fd_parent);
+                        }
+                    }
+                } 
+                else {
+                    if (timer->num_children > 0) {
+                        int child_id = timer->children[0].id;
+                        DeviceType child_type = timer->children[0].type;
+
+                        //controllo il device
+                        const char *label = "power";
+                        if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
+                            label = "is_open";
+                        }
+                        
+                        int fd_child = ipc_open_for_writing(child_id, child_type);
+                        if (fd_child != -1) {
+                            char cmd[64];
+                            snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, label, pos, timer->id, DEVICE_TIMER);
+                            ipc_send_message(fd_child, cmd);
+                            close(fd_child);
+                        }
+                        
+                        int msg = 0;
+                        int timeout = 300;
+                        while (msg < 1 && timeout > 0) {
+                            char msg_buf[64];
+                            int n = ipc_read_line(fd_ascolto, msg_buf, sizeof(msg_buf));
+                            if (n > 0 && strncmp(msg_buf, "MSG", 3) == 0){
+                                msg++;
+                            } else { 
+                                usleep(10000); timeout--; 
+                            }
+                        }
+                    }
+
+                    if (parsed >= 3) {
+                        int parent_type = (parsed == 4) ? sender_type : DEVICE_HUB;
+                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)parent_type);
+                        if(fd_parent != -1) {
+                            char ack[32];
+                            snprintf(ack, sizeof(ack), "MSG %d", timer->id);
+                            ipc_send_message(fd_parent, ack);
+                            close(fd_parent);
+                        }
+                    } else {
+                        ipc_send_controller(STATUS_OK, "Timer forwarded switch command.");
+                    }
+                }
 
             }
             //delete
