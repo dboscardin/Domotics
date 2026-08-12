@@ -21,3 +21,9 @@ void format_parent_string(int parent_id, char *parent_str, size_t size) {
         snprintf(parent_str, size, "Hub/Timer ID %d", parent_id);
     }
 }
+
+static long compute_elapsed_seconds(struct timespec *active_since) {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (long)(now.tv_sec - active_since->tv_sec);
+}

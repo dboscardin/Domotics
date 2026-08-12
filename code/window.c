@@ -15,7 +15,8 @@ Window create_window_struct(int id) {
         .id = id,
         .parent_id = CONTROLLER_ID,
         .is_open = false,
-        .time = 0
+        .time = 0,
+        .tracking = false
     };
     return window;
 } 

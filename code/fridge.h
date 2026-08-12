@@ -7,11 +7,13 @@ typedef struct {
     int id;
     int parent_id;
     bool is_open;
-    int time;
+    long time;
     int delay;
     int perc;
     int temp;
     int thermostat;
+    struct timespec active_since;   // timestamp di quando è iniziato lo stato attivo
+    bool tracking;                  // true se il timer è attivo
 } Fridge;
 
 Fridge create_fridge_struct(int id);

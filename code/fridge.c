@@ -19,7 +19,8 @@ Fridge create_fridge_struct(int id) {
         .delay = 60, //60s
         .perc = 100,
         .temp = 6,
-        .thermostat = 6 
+        .thermostat = 6,
+        .tracking = false
     };
     return fridge;
 }

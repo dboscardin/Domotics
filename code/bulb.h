@@ -7,7 +7,10 @@ typedef struct {
     int id;
     int parent_id;
     bool power;
-    int time;
+    long time;
+    struct timespec active_since;   // timestamp di quando è iniziato lo stato attivo
+    bool tracking;                  // true se il timer è attivo
+
 } Bulb;
 
 Bulb create_bulb_struct(int id);

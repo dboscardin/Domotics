@@ -16,7 +16,8 @@ Bulb create_bulb_struct(int id) {
         .id = id,
         .parent_id = CONTROLLER_ID,
         .power = false,
-        .time = 0
+        .time = 0,
+        .tracking = false
     };
 
     return bulb;
@@ -41,12 +42,12 @@ void bulb_run(Bulb *bulb) {
                 int sender_type = -1;
                 
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
-                    int fd_parend = ipc_open_for_writing(sender,(DeviceType)sender_type);
-                    if(fd_parend != -1){
+                    int fd_parent = ipc_open_for_writing(sender,(DeviceType)sender_type);
+                    if(fd_parent != -1){
                         char message[MAX_MSG_LEN];
                         snprintf(message, sizeof(message), "MESSAGE %d", bulb->id);
-                        ipc_send_message(fd_parend,message);
-                        close(fd_parend);
+                        ipc_send_message(fd_parent,message);
+                        close(fd_parent);
                     }
                 } else {
                     char message[MAX_MSG_LEN];
@@ -68,8 +69,16 @@ void bulb_run(Bulb *bulb) {
                     bool valid_pos = true;
                     if (strcmp(pos, "on") == 0) {
                         bulb->power = true;
+                        clock_gettime(CLOCK_MONOTONIC, &bulb->active_since);
+                        bulb->tracking = true;
                     } else if (strcmp(pos, "off") == 0) {
+                        if (bulb->tracking) {
+                            long elapsed = compute_elapsed_seconds(&bulb->active_since);
+                            bulb->time += elapsed;
+                            bulb->tracking = false;
+                        }
                         bulb->power = false;
+                        
                     } else {
                         valid_pos = false;
                     }
@@ -114,16 +123,21 @@ void bulb_run(Bulb *bulb) {
                 char message[MAX_MSG_LEN];
                 char parent[32];
 
+                long total_time = bulb->time;
+                if (bulb->tracking) {
+                    total_time += compute_elapsed_seconds(&bulb->active_since);
+                }
+
                 format_parent_string(bulb->parent_id, parent, sizeof(parent));
 
                 snprintf(message,sizeof(message),
                 "\n-------- Bulb Details ------\n"
                 "ID: %d\n"
                 "State: %s\n"
-                "Total usage time: %d seconds\n"
+                "Total usage time: %ld seconds\n"
                 "Linked to: %s\n"
                 "----------------------------\n", 
-                bulb->id, bulb->power ? "On" : "Off", bulb->time, parent);
+                bulb->id, bulb->power ? "On" : "Off", total_time, parent);
                 
                 ipc_send_controller(STATUS_OK, message);
             } 
