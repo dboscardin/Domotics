@@ -105,15 +105,19 @@ void timer_run(TimerDevice *timer){
             int child_id = timer->children[0].id;
             DeviceType child_type = timer->children[0].type;
 
-            //controllo il device: per Window/Fridge usa open/close (impulso), per Bulb usa power
-            const char *labelOn  = (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) ? "open"  : "power";
-            const char *labelOff = (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) ? "close" : "power";
+            //controllo il device
+            const char *labelOn = "power";
+            const char *labelOff = labelOn;
+            if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
+                labelOn = "open";
+                labelOff = "close";
+            }
 
             if (strcmp(current_time, timer->begin) == 0 && strcmp(last_triggered, timer->begin) != 0) {
                 int fd_child = ipc_open_for_writing(child_id, child_type);
                 if (fd_child != -1) {
                     char cmd[64];
-                    snprintf(cmd, sizeof(cmd), "%s %s on %d %d", CMD_SWITCH, labelOn, timer->id, DEVICE_TIMER);
+                    snprintf(cmd, sizeof(cmd), "%s %s on %d %d", CMD_SWITCH, label, timer->id, DEVICE_TIMER);
                     ipc_send_message(fd_child, cmd); 
                     close(fd_child);
 
@@ -140,9 +144,7 @@ void timer_run(TimerDevice *timer){
                 int fd_child = ipc_open_for_writing(child_id, child_type);
                 if (fd_child != -1) {
                     char cmd[64];
-                    /* per gli impulsi (open/close) si manda sempre "on"; per power si manda "off" */
-                    const char *off_pos = (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) ? "on" : "off";
-                    snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, labelOff, off_pos, timer->id, DEVICE_TIMER);
+                    snprintf(cmd, sizeof(cmd), "%s %s off %d %d", CMD_SWITCH, label, timer->id, DEVICE_TIMER);
                     ipc_send_message(fd_child, cmd);
                     close(fd_child);
 
@@ -288,17 +290,17 @@ void timer_run(TimerDevice *timer){
                         DeviceType child_type = timer->children[0].type;
 
                         //controllo il device
-                        const char *labelOn  = (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) ? "open"  : "power";
-                        const char *labelOff = (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) ? "close" : "power";
-                        /* scegli la label giusta in base alla posizione richiesta */
-                        const char *fwd_label = (strcmp(pos, "on") == 0) ? labelOn : labelOff;
-                        /* per gli impulsi open/close la posizione è sempre "on" */
-                        const char *fwd_pos = ((child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE)) ? "on" : pos;
-
+                        const char *labelOn = "power";
+                        const char *labelOff = labelOn;
+                        if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
+                            labelOn = "open";
+                            labelOff = "close";
+                        }
+                        
                         int fd_child = ipc_open_for_writing(child_id, child_type);
                         if (fd_child != -1) {
                             char cmd[64];
-                            snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, fwd_label, fwd_pos, timer->id, DEVICE_TIMER);
+                            snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, label, pos, timer->id, DEVICE_TIMER);
                             ipc_send_message(fd_child, cmd);
                             close(fd_child);
                         }
