@@ -14,8 +14,7 @@ Window create_window_struct(int id) {
     Window window = {
         .id = id,
         .parent_id = CONTROLLER_ID,
-        .open = false,
-        .close = true,
+        .is_open = false,
         .time = 0
     };
     return window;
@@ -67,34 +66,13 @@ void window_run(Window *window) {
 
                 if(strcmp(label, "open") == 0) {
                     if (strcmp(pos, "on") == 0) {
-                        window->open = true;
-                        window->close = false;
-                    } else if (strcmp(pos, "off") == 0) {
-                        window->open = false;
-                        window->close = true;
-                    } else {
-                        is_valid = false;
+                        window->is_open = true;
                     }
                     handled = true;
                 }
-                if(strcmp(label, "close") == 0) {
+                else if(strcmp(label, "close") == 0) {
                     if (strcmp(pos, "on") == 0) {
-                        window->close = true;
-                        window->open = false;
-                    } else if (strcmp(pos, "off") == 0) {
-                        window->close = false;
-                        window->open = true;
-                    } else {
-                        is_valid = false;
-                    }
-                    handled = true;
-                }
-                else if(strcmp(label, "time") == 0) {
-                    int int_pos = atoi(pos);
-                    if (int_pos >= 0) {
-                        window->time = int_pos;
-                    } else {
-                        is_valid = false;
+                        window->is_open = false;
                     }
                     handled = true;
                 }
@@ -148,7 +126,7 @@ void window_run(Window *window) {
                 "State: %s\n" 
                 "Time left open: %d s\n"
                 "----------------------------\n",
-                window->id,window->open ? "Open" : "Closed",window->time );
+                window->id,window->is_open ? "Open" : "Closed",window->time );
                 ipc_send_controller(STATUS_OK, message);
             }
             //set_parent
@@ -169,7 +147,7 @@ void window_run(Window *window) {
 
                     if(fd_sender != -1 ){
                         char resp[MAX_MSG_LEN];
-                        snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, window->id, window->open ? "Open" : "Closed");
+                        snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, window->id, window->is_open ? "Open" : "Closed");
                         ipc_send_message(fd_sender,resp);
                         close(fd_sender);
                     }

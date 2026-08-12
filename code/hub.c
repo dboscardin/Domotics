@@ -260,7 +260,7 @@ void hub_run(HubDevice *hub){
                 }
 
                 int deleted = 0;
-                int timeout = 1000; //timer per evitare di stare nel loop in caso un figlio sia crashato
+                int timeout = 1000; //timer 10 sec per recauzione
                 while (deleted < hub->num_children && timeout > 0) {
                     char deleted_buf[64];
                     int n = ipc_read_line(fd_ascolto, deleted_buf, sizeof(deleted_buf));
@@ -308,7 +308,7 @@ void hub_run(HubDevice *hub){
                     //Traduzione del comando
                     const char *out_label = label;
                     if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
-                        out_label = "is_open";
+                        out_label = "open";
                     }
 
                     int fd_child = ipc_open_for_writing(child_id, child_type);

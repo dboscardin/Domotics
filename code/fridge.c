@@ -13,9 +13,8 @@
 Fridge create_fridge_struct(int id) {
     Fridge fridge = {
         .id = id,
-        .parent_id = CONTROLLER_ID
-        .open = false,
-        .close = true,
+        .parent_id = CONTROLLER_ID,
+        .is_open = false,
         .time = 0,
         .delay = 60, //60s
         .perc = 100,
@@ -71,11 +70,9 @@ void fridge_run(Fridge *fridge) {
 
                 if(strcmp(label, "open") == 0) {
                     if (strcmp(pos, "on") == 0) {
-                        fridge->open = true;
-                        fridge->close = false;
+                        fridge->is_open = true;
                     } else if (strcmp(pos, "off") == 0) {
-                        fridge->open = false;
-                        fridge->close = true;
+                        fridge->is_open = false;
                     } else {
                         is_valid = false;
                     }
@@ -83,11 +80,9 @@ void fridge_run(Fridge *fridge) {
                 }
                 if(strcmp(label, "close") == 0) {
                     if (strcmp(pos, "on") == 0) {
-                        fridge->close = true;
-                        fridge->open = false;
+                        fridge->is_open = false;
                     } else if (strcmp(pos, "off") == 0) {
-                        fridge->close = false;
-                        fridge->open = true;
+                        fridge->is_open = true;
                     } else {
                         is_valid = false;
                     }
@@ -191,7 +186,7 @@ void fridge_run(Fridge *fridge) {
                 "Current Temp: %d °C\n"
                 "Thermostat: %d °C\n"
                 "----------------------------\n",
-                fridge->id,fridge->open ? "Open" : "Closed",fridge->time,fridge->delay,fridge->perc,fridge->temp,fridge->thermostat);
+                fridge->id,fridge->is_open ? "Open" : "Closed",fridge->time,fridge->delay,fridge->perc,fridge->temp,fridge->thermostat);
                 ipc_send_controller(STATUS_OK, message);
             }
             //set_parent
@@ -212,7 +207,7 @@ void fridge_run(Fridge *fridge) {
 
                     if(fd_sender != -1 ){
                         char resp[MAX_MSG_LEN];
-                        snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, fridge->id, fridge->open ? "Open" : "Closed");
+                        snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, fridge->id, fridge->is_open ? "Open" : "Closed");
                         ipc_send_message(fd_sender,resp);
                         close(fd_sender);
                     }
