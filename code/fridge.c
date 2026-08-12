@@ -8,7 +8,7 @@
 #include "device.h"
 #include "protocol.h"
 
-#define BUFFER_SIZE 50
+#define BUFFER_SIZE 256
 
 Fridge create_fridge_struct(int id) {
     Fridge fridge = {
@@ -42,12 +42,12 @@ void fridge_run(Fridge *fridge) {
                 int sender_type = -1;
                 
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
-                    int fd_parend = ipc_open_for_writing(sender,(DeviceType)sender_type);
-                    if(fd_parend != -1){
+                    int fd_parent = ipc_open_for_writing(sender,(DeviceType)sender_type);
+                    if(fd_parent != -1){
                         char msg[32];
                         snprintf(msg, sizeof(msg), "MSG %d", fridge->id);
-                        ipc_send_message(fd_parend,msg);
-                        close(fd_parend);
+                        ipc_send_message(fd_parent,msg);
+                        close(fd_parent);
                     }
                 } else {
                     char msg[MAX_MSG_LEN];
@@ -58,11 +58,14 @@ void fridge_run(Fridge *fridge) {
                 close(fd);
                 exit(0);
             }
-            //TODO sistemare switch usando FIFO controller
-            else if(strncmp(buffer, "SWITCH", 6) == 0) {
+            //Switch
+            else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
                 bool is_valid = true;
+                bool handled = false;
                 char label[32], pos[32];
-                sscanf(buffer, "SWITCH %s %s", label, pos);
+                int sender_id = -1;
+                int sender_type = -1;
+                int parsed = sscanf(buffer, "%*s %s %s %d %d", label,pos,&sender_id,&sender_type);
 
                 if(strcmp(label, "is_open") == 0) {
                     if (strcmp(pos, "on") == 0) {
@@ -72,6 +75,7 @@ void fridge_run(Fridge *fridge) {
                     } else {
                         is_valid = false;
                     }
+                    handled = true;
                 }
                 else if(strcmp(label, "time") == 0) {
                     int int_pos = atoi(pos);
@@ -80,6 +84,7 @@ void fridge_run(Fridge *fridge) {
                     } else {
                         is_valid = false;
                     }
+                    handled = true;
                 }
                 else if(strcmp(label, "delay") == 0) {
                     int int_pos = atoi(pos);
@@ -88,6 +93,7 @@ void fridge_run(Fridge *fridge) {
                     } else {
                         is_valid = false;
                     }
+                    handled = true;
                 }
                 //in seguito far sì che perc e therm siano modificati solo manualmente
                 else if(strcmp(label, "perc") == 0) {
@@ -97,6 +103,7 @@ void fridge_run(Fridge *fridge) {
                     } else {
                         is_valid = false;
                     }
+                    handled = true;
                 }
                 else if(strcmp(label, "temp") == 0) {
                     int int_pos = atoi(pos);
@@ -105,6 +112,7 @@ void fridge_run(Fridge *fridge) {
                     } else {
                         is_valid = false;
                     }
+                    handled = true;
                 }
                 else if(strcmp(label, "thermostat") == 0) {
                     int int_pos = atoi(pos);
@@ -113,19 +121,43 @@ void fridge_run(Fridge *fridge) {
                     } else {
                         is_valid = false;
                     }
-                } else {
-                    ipc_send_controller(ERR_INVALID_PARAM, "Invalid label for Fridge.");
+                    handled = true;
                 }
-
-                char message[MAX_MSG_LEN];
-                if(is_valid) {
-                    snprintf(message, sizeof(message), "Fridge %d, %s set to: %s\n", fridge->id, label, pos);
-                    ipc_send_controller(STATUS_OK, message);
+                if(handled){
+                    if(parsed >= 4){
+                        //il comando viene da un genitore
+                        int fd_parent = ipc_open_for_writing(sender_id,(DeviceType)sender_type);
+                        if(fd_parent != -1){
+                            char msg[MAX_MSG_LEN];
+                                snprintf(msg, sizeof(msg), "MSG %d", fridge->id);
+                                ipc_send_message(fd_parent, msg);
+                                close(fd_parent); 
+                        }
+                    } else {
+                        //comando dal controller
+                        char message[MAX_MSG_LEN];
+                        if (is_valid) {
+                           snprintf(message, sizeof(message), "Fridge %d, %s set to: %s\n", fridge->id, label, pos);                            ipc_send_controller(STATUS_OK, message);
+                        } else {
+                            snprintf(message, sizeof(message), "Invalid position for %s.", label);
+                            ipc_send_controller(ERR_INVALID_PARAM, message);
+                        }
+                    }
                 } else {
-                    snprintf(message, sizeof(message), "Invalid position for %s.", label);
-                    ipc_send_controller(ERR_INVALID_PARAM, message);
+                    //se label non valido 
+                    if (parsed >= 4) {
+                        // Se ci ha chiamato un genitore dobbiamo comunque sbloccarlo
+                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
+                        if (fd_parent != -1) {
+                            char msg[MAX_MSG_LEN];
+                            snprintf(msg, sizeof(msg), "MSG %d", fridge->id);
+                            ipc_send_message(fd_parent, msg);
+                            close(fd_parent);
+                        }
+                    } else {
+                        ipc_send_controller(ERR_INVALID_PARAM, "Invalid label for Bulb.");
+                    }
                 }
-                fflush(stdout);
             }
             //info
             else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){

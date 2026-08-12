@@ -9,6 +9,8 @@
 #include "device.h"
 #include "protocol.h"
 
+#define BUFFER_SIZE 256
+
 static const char *get_device_type_name(DeviceType type) {
     switch (type) {
         case DEVICE_BULB:       return "Bulb";
@@ -154,7 +156,7 @@ void hub_run(HubDevice *hub){
     int fd_ascolto = ipc_open_for_listening(hub->id, DEVICE_HUB);
 
     // Ricezione messaggi
-    char buffer[256];
+    char buffer[BUFFER_SIZE];
     while (1) {
         // Lettura FIFO
         int bytes_letti = ipc_read_line(fd_ascolto, buffer, sizeof(buffer));

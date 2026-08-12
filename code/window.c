@@ -8,7 +8,7 @@
 #include "device.h"
 #include "protocol.h"
 
-#define BUFFER_SIZE 50
+#define BUFFER_SIZE 256
 
 Window create_window_struct(int id) {
     Window window = {

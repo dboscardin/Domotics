@@ -9,7 +9,7 @@
 #include "protocol.h"
 #include "device.h"
 
-#define BUFFER_SIZE 50
+#define BUFFER_SIZE 256
 
 Bulb create_bulb_struct(int id) {
     Bulb bulb = {
@@ -44,7 +44,7 @@ void bulb_run(Bulb *bulb) {
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
                     int fd_parend = ipc_open_for_writing(sender,(DeviceType)sender_type);
                     if(fd_parend != -1){
-                        char msg[32];
+                        char msg[MAX_MSG_LEN];
                         snprintf(msg, sizeof(msg), "MSG %d", bulb->id);
                         ipc_send_message(fd_parend,msg);
                         close(fd_parend);
@@ -79,7 +79,7 @@ void bulb_run(Bulb *bulb) {
                         //il comando viene da un genitore quindi non sporco la shell
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
-                            char msg[32];
+                            char msg[MAX_MSG_LEN];
                             snprintf(msg, sizeof(msg), "MSG %d", bulb->id);
                             ipc_send_message(fd_parent, msg);
                             close(fd_parent);
@@ -100,7 +100,7 @@ void bulb_run(Bulb *bulb) {
                         // Se ci ha chiamato un genitore dobbiamo comunque sbloccarlo
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
-                            char msg[32];
+                            char msg[MAX_MSG_LEN];
                             snprintf(msg, sizeof(msg), "MSG %d", bulb->id);
                             ipc_send_message(fd_parent, msg);
                             close(fd_parent);
