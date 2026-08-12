@@ -4,23 +4,20 @@
 #include <stdbool.h>
 #include "device.h"
 
-#define MAX_CHILDREN 50
+#define MAX_TIMER_CHILDREN 1
 
 typedef struct {
     int id;
     int parent_id;
-    ChildDevice children[MAX_CHILDREN];
+    ChildDevice children[MAX_TIMER_CHILDREN];
     int num_children;
-    int timer_delay;
-    int time_left;
-    bool is_active;
-    bool target_state;
+    char begin[6];  //HH:MM
+    char end[6];    //HH:MM
 } TimerDevice;
 
 
-void timer_init(TimerDevice *timer, int id);
-bool timer_add_child(TimerDevice *timer, int child_id,DeviceType child_type);
-bool timer_remove_child(TimerDevice *timer, int child_id);
+TimerDevice create_timer_struct(int id);
+void timer_run(TimerDevice *timer);
 void create_timer(int id);
 
 

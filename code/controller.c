@@ -48,9 +48,7 @@ static void commands(void);
 static void cleanup_all_devices(void);
 static void handle_sigint(int sig);
 static void unlink_device(int child_id,int hub_id);
-static void unlink_children_from_timer(int parent_id);
 static void remove_device_from_array(int id);
-static void remove_children_from_hub(int parent_id);
 
 static const char *device_type_to_string(DeviceType type) {
     switch (type) {
@@ -139,9 +137,9 @@ static void devices_list(void) {
         {
             printf("%d --> Id=%d, Pid=%d, Type=%s, ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
             if(devices[i].parent_id == -1){
-                printf("Linked: NO\n");
+                printf("Linked:no\n");
             } else {
-                printf("Linked to ID: %d\n", devices[i].parent_id);
+                printf("Linked to ID:%d\n", devices[i].parent_id);
             }
         }
         printf("\n");
@@ -308,39 +306,48 @@ static void link_devices(int child_id, int hub_id) {
         return;
     }
 
-    printf("Link request sent: Device %d -> Parent %d\n", child_id, hub_id);
-    fflush(stdout);
+    if (devices[child_idx].parent_id != -1) {
+        printf("Notice: Device %d is already linked to %d. Unlink it first.\n", child_id, devices[child_idx].parent_id);
+        return;
+    }
 
     //invia messaggio al figlio
     int fd_child = ipc_open_for_writing(child_id, devices[child_idx].type);
     if (fd_child != -1) {
         char msg_child[64];
-        snprintf(msg_child, sizeof(msg_child), "SET_PARENT %d %d", child_id, hub_id);
+        snprintf(msg_child, sizeof(msg_child), "%s %d",CMD_SET_PARENT, hub_id);
+
         ipc_send_message(fd_child, msg_child);
         close(fd_child);
+
     } else {
         printf("Error: failed to connect to child %d FIFO.\n\n", child_id);
-        return;
     }
 
     //invia messaggio al padre
     int fd_parent = ipc_open_for_writing(hub_id, devices[hub_idx].type);
     if (fd_parent != -1) {
         char msg_parent[64];
-        snprintf(msg_parent, sizeof(msg_parent), "LINK_CHILD %d %d", child_id, devices[child_idx].type);
+        snprintf(msg_parent, sizeof(msg_parent), "%s %d %d", CMD_LINK_CHILD,child_id, devices[child_idx].type);
+
+        pthread_mutex_lock(&mutex);
+        response_received = false;
+
         ipc_send_message(fd_parent, msg_parent);
         close(fd_parent);
+
+        while(!response_received){
+            pthread_cond_wait(&sync_cond,&mutex);
+        }
+
+        pthread_mutex_unlock(&mutex);
+
+        devices[child_idx].parent_id = hub_id;
+
     } else {
         printf("Error: failed to connect to parent %d FIFO.\n\n", hub_id);
-        return;
     }
 
-    devices[child_idx].parent_id = hub_id;
-
-    usleep(50000); 
-
-    printf("Link completed: Device %d is now child of %d\n\n", child_id, hub_id);
-    fflush(stdout);
 }
 
 static void unlink_device(int child_id,int hub_id){
@@ -362,27 +369,27 @@ static void unlink_device(int child_id,int hub_id){
         return;
     }
 
-    printf("Unlink request sent: Device %d from Hub %d\n", child_id, hub_id);
-    fflush(stdout);
-
     char msg[64];
-    snprintf(msg, sizeof(msg), "UNLINK_CHILD %d", child_id);
+    snprintf(msg, sizeof(msg), "%s %d",CMD_UNLINK_CHILD, child_id);
     int fd = ipc_open_for_writing(hub_id, devices[hub_idx].type);
     if (fd != -1) {
+
+        pthread_mutex_lock(&mutex);
+        response_received = false;
+
         ipc_send_message(fd, msg);
         close(fd);
+
+        while(!response_received){
+            pthread_cond_wait(&sync_cond,&mutex);
+        }
+
+        pthread_mutex_unlock(&mutex);
+
         devices[child_idx].parent_id = -1;
-        usleep(50000); // 50ms
+
     } else {
         printf("Error: failed to connect to Hub %d FIFO.\n\n", hub_id);
-    }
-}
-
-static void unlink_children_from_timer(int parent_id){
-    for(int i=0; i<device_count; i++){
-        if(devices[i].parent_id == parent_id){
-            devices[i].parent_id=-1;
-        }
     }
 }
 
@@ -403,39 +410,6 @@ static void remove_device_from_array(int id) {
     device_count--;
 }
 
-// Rimuove ricorsivamente i figli associati a un hub
-static void remove_children_from_hub(int parent_id) {
-    for (int i = device_count - 1; i >= 0; i--) {
-        if (devices[i].parent_id == parent_id) {
-            int child_id = devices[i].id;
-            DeviceType child_type = devices[i].type;
-            pid_t child_pid = devices[i].pid;
-
-            // Se il figlio è un Hub, elimina ricorsivamente i suoi sotto-figli
-            if (child_type == DEVICE_HUB) {
-                remove_children_from_hub(child_id);
-            } 
-            // Se il figlio è un Timer, svincola solo i suoi figli senza distruggerli
-            else if (child_type == DEVICE_TIMER) {
-                unlink_children_from_timer(child_id);
-            }
-
-            int fd = ipc_open_for_writing(child_id, child_type);
-            if (fd != -1) {
-                ipc_send_message(fd, "DELETE");
-                close(fd);
-            } else {
-                kill(child_pid, SIGKILL);
-            }
-            
-            waitpid(child_pid, NULL, WNOHANG);
-
-            // Rimuove l'elemento dall'array devices del Controller
-            remove_device_from_array(child_id);
-        }
-    }
-}
-
 static void remove_device(int id) {
     int index = find_device_by_id(id);
     if (index == -1) {
@@ -449,6 +423,7 @@ static void remove_device(int id) {
     sigaddset(&mask, SIGCHLD);
     sigprocmask(SIG_BLOCK, &mask, &oldmask);
 
+    // Se il dispositivo era collegato a un genitore
     if (devices[index].parent_id != -1) {
         unlink_device(id, devices[index].parent_id);
     }
@@ -456,29 +431,25 @@ static void remove_device(int id) {
     DeviceType type = devices[index].type;
     pid_t pid = devices[index].pid;
 
-    //HUB vengono eliminati anche i figli
-    if (type == DEVICE_HUB) {
-        remove_children_from_hub(id);
-    } 
-    //timer non elimina i figli
-    else if (type == DEVICE_TIMER) {
-        unlink_children_from_timer(id);
-    }
-        
-
     // Invio DELETE
-    char msg[] = "DELETE";
     int fd = ipc_open_for_writing(id, type);
     if (fd != -1) {
-        ipc_send_message(fd, msg);
+
+        pthread_mutex_lock(&mutex);
+        response_received = false;
+
+        ipc_send_message(fd, CMD_DELETE);
         close(fd);
+
+        while(!response_received){
+            pthread_cond_wait(&sync_cond,&mutex);
+        }
+
+        pthread_mutex_unlock(&mutex);
     } else {
+        //solo se la fifo non è accessibile
         kill(pid, SIGKILL);
     }
-    
-    // Attesa sincrona
-    int status;
-    waitpid(pid, &status, 0);
 
     remove_device_from_array(id);
     printf("Device ID: %d is removed\n\n", id);
@@ -502,7 +473,9 @@ static bool switch_check(char *tokens[], int count) {
         {"delay", false},
         {"perc", false},
         {"temp", false},
-        {"thermostat", false}
+        {"thermostat", false},
+        {"begin", false},
+        {"end", false}
     };
 
     for(size_t i = 0; i < sizeof(registers) / sizeof(registers[0]); i++) {
@@ -510,6 +483,12 @@ static bool switch_check(char *tokens[], int count) {
             if(registers[i].is_bool) {
                 return strcmp(tokens[3], "on") == 0 || strcmp(tokens[3], "off") == 0;
             } else {
+
+                //per il timer accettando le stringhe per gli orari
+                if(strcmp(tokens[2], "begin") == 0 || strcmp(tokens[2],"end")== 0){
+                    return true;
+                }
+
                 char *endptr;
                 //tries to convert in int
                 strtol(tokens[3], &endptr, 10);
@@ -527,7 +506,7 @@ static void switch_device(char *tokens[]) {
     if(index == -1) return;
 
     char message[MAX_MSG_LEN];
-    snprintf(message, sizeof(message), "SWITCH %s %s", tokens[2], tokens[3]);
+    snprintf(message, sizeof(message), "%s %s %s", CMD_SWITCH, tokens[2], tokens[3]);
 
     int fd = ipc_open_for_writing(id, devices[index].type);
     if(fd != -1) {
@@ -561,7 +540,7 @@ static void device_info(int id) {
         pthread_mutex_lock(&mutex);
         response_received = false;
 
-        ipc_send_message(fd, "INFO");
+        ipc_send_message(fd, CMD_INFO);
         close(fd);
 
         while (!response_received) {
