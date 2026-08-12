@@ -5,6 +5,7 @@
 
 typedef struct {
     int id;
+    int parent_id;
     bool power;
     int time;
 } Bulb;

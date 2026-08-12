@@ -13,6 +13,7 @@
 Fridge create_fridge_struct(int id) {
     Fridge fridge = {
         .id = id,
+        .parent_id = CONTROLLER_ID;
         .is_open = false,
         .time = 0,
         .delay = 60, //60s
@@ -162,6 +163,9 @@ void fridge_run(Fridge *fridge) {
             //info
             else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){
                 char message[MAX_MSG_LEN];
+                char parent[32];
+
+                format_parent_string(fridge->parent_id, parent, sizeof(parent));
                 snprintf(message,sizeof(message),
                 "\n------- Fridge Details -----\n"
                 "ID: %d\n"
@@ -177,8 +181,7 @@ void fridge_run(Fridge *fridge) {
             }
             //set_parent
             else if(strncmp(buffer , CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
-                continue;
-                //TODO: da implementare
+                handle_set_parent(&fridge->parent_id, buffer);
             }
             //mirror
             else if(strncmp(buffer , CMD_MIRROR, strlen(CMD_MIRROR)) == 0){

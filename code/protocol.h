@@ -36,4 +36,6 @@
 #define KV_SEP '='
 //ES: 0 power=on;time=45
 
+#define CONTROLLER_ID 0
+
 #endif

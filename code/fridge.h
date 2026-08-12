@@ -5,6 +5,7 @@
 
 typedef struct {
     int id;
+    int parent_id;
     bool is_open;
     int time;
     int delay;

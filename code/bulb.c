@@ -14,6 +14,7 @@
 Bulb create_bulb_struct(int id) {
     Bulb bulb = {
         .id = id,
+        .parent_id = CONTROLLER_ID;
         .power = false,
         .time = 0
     };
@@ -32,8 +33,6 @@ void bulb_run(Bulb *bulb) {
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
-            //delay
-            ipc_simulate_delay();
 
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
@@ -44,15 +43,15 @@ void bulb_run(Bulb *bulb) {
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
                     int fd_parend = ipc_open_for_writing(sender,(DeviceType)sender_type);
                     if(fd_parend != -1){
-                        char msg[MAX_MSG_LEN];
-                        snprintf(msg, sizeof(msg), "MSG %d", bulb->id);
-                        ipc_send_message(fd_parend,msg);
+                        char message[MAX_MSG_LEN];
+                        snprintf(message, sizeof(message), "MESSAGE %d", bulb->id);
+                        ipc_send_message(fd_parend,message);
                         close(fd_parend);
                     }
                 } else {
-                    char msg[MAX_MSG_LEN];
-                    snprintf(msg,sizeof(msg),"Device Bulb %d deleted.", bulb->id );
-                    ipc_send_controller(STATUS_OK, msg);
+                    char message[MAX_MSG_LEN];
+                    snprintf(message, sizeof(message),"Device Bulb %d deleted.", bulb->id );
+                    ipc_send_controller(STATUS_OK, message);
                     
                 }
                 close(fd);
@@ -113,20 +112,24 @@ void bulb_run(Bulb *bulb) {
             //Info
             else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){
                 char message[MAX_MSG_LEN];
+                char parent[32];
+
+                format_parent_string(window->parent_id, parent, sizeof(parent));
 
                 snprintf(message,sizeof(message),
                 "\n-------- Bulb Details ------\n"
                 "ID: %d\n"
                 "State: %s\n"
                 "Total usage time: %d seconds\n"
+                "Linked to: %s\n"
                 "----------------------------\n", 
-                bulb->id, bulb->power ? "On" : "Off", bulb->time);
+                bulb->id, bulb->power ? "On" : "Off", bulb->time, parent);
+                
                 ipc_send_controller(STATUS_OK, message);
             } 
             //set_parent
             else if(strncmp(buffer , CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
-                continue;
-                //TODO: da implementare
+                handle_set_parent(&bulb->parent_id, buffer);
             }
             //mirror
             else if(strncmp(buffer , CMD_MIRROR, strlen(CMD_MIRROR)) == 0){

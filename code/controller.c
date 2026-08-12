@@ -24,8 +24,6 @@
 #define MAX_DEVICES 50
 #define MAX_TOKENS 10
 
-#define CONTROLLER_ID 0
-
 //veriabile globale per controllare il ciclo di un thread
 static volatile int running = 1;
 static pthread_mutex_t mutex;

@@ -13,6 +13,7 @@
 Window create_window_struct(int id) {
     Window window = {
         .id = id,
+        .parent_id = CONTROLLER_ID;
         .is_open = false,
         .time = 0
     };
@@ -122,6 +123,9 @@ void window_run(Window *window) {
             //info
             else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){
                 char message[MAX_MSG_LEN];
+                char parent[32];
+
+                format_parent_string(window->parent_id, parent, sizeof(parent));
 
                 snprintf(message,sizeof(message),
                 "\n------- Window Details -----\n"
@@ -134,8 +138,7 @@ void window_run(Window *window) {
             }
             //set_parent
             else if(strncmp(buffer , CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
-                continue;
-                //TODO: da implementare
+                handle_set_parent(&window->parent_id, buffer);
             }
             //mirror
             else if(strncmp(buffer , CMD_MIRROR, strlen(CMD_MIRROR)) == 0){
