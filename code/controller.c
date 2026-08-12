@@ -52,7 +52,6 @@ static void cleanup_all_devices(void);
 static void handle_sigint(int sig);
 static void unlink_device(int child_id,int hub_id);
 static void remove_device_from_array(int id);
-static void remove_children_from_hub(int parent_id);
 static int count_direct_children(int parent_id);
 
 static const char *device_type_to_string(DeviceType type) {
@@ -442,14 +441,6 @@ static void unlink_device(int child_id,int hub_id){
     }
 }
 
-static void unlink_children_from_timer(int parent_id){
-    for(int i=0; i<device_count; i++){
-        if(devices[i].parent_id == parent_id){
-            devices[i].parent_id = CONTROLLER_ID;
-        }
-    }
-}
-
 //rimuove il device dall'array devices
 static void remove_device_from_array(int id) {
     int index = find_device_by_id(id);
@@ -509,6 +500,8 @@ static void remove_device(int id) {
     remove_device_from_array(id);
     printf("Device ID: %d is removed\n\n", id);
     fflush(stdout);
+
+    
 }
 static bool label_valid_for_type(DeviceType type, const char *label) {
     switch(type) {

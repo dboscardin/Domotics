@@ -33,6 +33,7 @@ fi
 #prendo i parametri
 ID=$1
 COMMAND="$2"
+COMMAND=$(echo "$COMMAND" | tr '[:lower:]' '[:upper:]') #conversione in maiscolo
 
 shift 2 #per prendere i parametri finali
 PARAMETERS="$@"
@@ -45,10 +46,10 @@ else
 fi
 
 #cerco la fifo
-FIFO_PATH=$(ls "/tmp/domotica_*_${ID}.fifo" 2>/dev/null)
+FIFO_PATH=$(ls /tmp/domotica_*_${ID}.fifo 2>/dev/null)
 
 #verifico se esiste davvero (-p controlla se il file è un named pipe)
-if [ -z "$FIFO_PATH" ] || [ ! -p "$FIFO_PATH" ]; then 
+if ([ -z "$FIFO_PATH" ] || [ ! -p "$FIFO_PATH" ]); then 
     echo "Error: device not found with ID:$ID"
     exit "$ERR_DEVICE_NOT_FOUND"
 fi
