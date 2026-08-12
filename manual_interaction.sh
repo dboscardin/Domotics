@@ -25,7 +25,7 @@ if [ "$#" -lt 2 ]; then
 fi
 
 #controllo se il parametro id è un numero
-if !([ "$1" -eq "$1" ] 2>/dev/null); then
+if ! [ "$1" -eq "$1" ] 2>/dev/null; then
     echo "Error: param <id> must be a number"
     exit "$ERR_INVALID_PARAM"
 fi
@@ -33,7 +33,16 @@ fi
 #prendo i parametri
 ID=$1
 COMMAND="$2"
-COMMAND=$(echo "$COMMAND" | tr '[:lower:]' '[:upper:]') #conversione in maiscolo
+
+#whitelist dei comandi
+if [ "$COMMAND" != "switch" ] && [ "$COMMAND" != "delete" ] && [ "$COMMAND" != "info" ]; then
+    echo "Error: command '$COMMAND' is not supported."
+    echo "Supported commands are: switch, info, delete"
+    exit "$ERR_INVALID_COMMAND"
+fi
+
+#conversione in maiscolo
+COMMAND=$(echo "$COMMAND" | tr '[:lower:]' '[:upper:]')
 
 shift 2 #per prendere i parametri finali
 PARAMETERS="$@"
@@ -49,7 +58,7 @@ fi
 FIFO_PATH=$(ls /tmp/domotica_*_${ID}.fifo 2>/dev/null)
 
 #verifico se esiste davvero (-p controlla se il file è un named pipe)
-if ([ -z "$FIFO_PATH" ] || [ ! -p "$FIFO_PATH" ]); then 
+if [ -z "$FIFO_PATH" ] || [ ! -p "$FIFO_PATH" ]; then 
     echo "Error: device not found with ID:$ID"
     exit "$ERR_DEVICE_NOT_FOUND"
 fi
