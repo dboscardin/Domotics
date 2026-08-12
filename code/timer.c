@@ -433,6 +433,13 @@ void timer_run(TimerDevice *timer){
                         close(fd_parent);
                     }
                 }
+            } else if (strncmp(buffer, CMD_CHILD_DIED, strlen(CMD_CHILD_DIED)) == 0) {
+                int dead_id;
+                if (sscanf(buffer, "%*s %d", &dead_id) == 1) {
+                    if (timer->num_children > 0 && timer->children[0].id == dead_id) {
+                        timer->num_children = 0;
+                    }
+                }
             } else {
                 ipc_send_controller(ERR_INVALID_COMMAND,"Timer unknown command.");
             }

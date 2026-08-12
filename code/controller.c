@@ -102,9 +102,41 @@ static void cleanup_all_devices(void) {
 // Gestione della chiusura tramite Ctrl+C
 static void handle_sigint(int sig) {
     (void)sig;
-    printf("\nInterrupted. Terminating all background devices...\n");
-    cleanup_all_devices();
-    exit(0);
+    int status;
+    pid_t pid;
+
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        for (int i = 0; i < device_count; i++) {
+            if (devices[i].id == CONTROLLER_ID) {
+                continue;
+            }
+            if (devices[i].pid == pid) {
+                if (devices[i].parent_id != -1 && devices[i].parent_id != CONTROLLER_ID) {
+                    int parent_idx = find_device_by_id(devices[i].parent_id);
+                    if (parent_idx != -1) {
+                        int fd_parent = ipc_open_for_writing(devices[parent_idx].id, devices[parent_idx].type);
+                        if (fd_parent != -1) {
+                            char message[64];
+                            snprintf(message, sizeof(message), "CHILD_DIED %d", devices[i].id);
+                            ipc_send_message(fd_parent, message);
+                            close(fd_parent);
+                        }
+                    }
+                }
+                if (devices[i].fifo_fd != -1) {
+                    close(devices[i].fifo_fd);
+                    devices[i].fifo_fd = -1;
+                }
+                ipc_remove_fifo(devices[i].id, devices[i].type);
+
+                for (int j = i; j < device_count - 1; j++) {
+                    devices[j] = devices[j + 1];
+                }
+                device_count--;
+                break;
+            }
+        }
+    }
 }
 
 // Handler del segnale SIGCHLD 
@@ -448,12 +480,6 @@ static void remove_device(int id) {
         return;
     }
 
-    //evita race condition
-    sigset_t mask, oldmask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGCHLD);
-    sigprocmask(SIG_BLOCK, &mask, &oldmask);
-
     // Se il dispositivo era collegato a un genitore
     if (devices[index].parent_id != -1) {
         unlink_device(id, devices[index].parent_id);
@@ -746,6 +772,12 @@ void controller_run(void) {
             continue;
         }
 
+        //evita race condition
+        sigset_t mask, oldmask;
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGCHLD);
+        sigprocmask(SIG_BLOCK, &mask, &oldmask);
+
         //switch non si può fare perché non funziona con le stringhe (solo numeri e char)
         if(strcmp(tokens[0], "list") == 0) {
             devices_list();
@@ -840,6 +872,9 @@ void controller_run(void) {
         else {
             printf("Invalid command.\n");
         }
+
+        //ripristino maschera
+        sigprocmask(SIG_SETMASK, &oldmask, NULL);
         
     }   
 }

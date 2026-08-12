@@ -412,7 +412,13 @@ void hub_run(HubDevice *hub){
                         close(fd_parent);
                     }
                 }
-            } else {
+            } else if (strncmp(buffer, CMD_CHILD_DIED, strlen(CMD_CHILD_DIED)) == 0) {
+                int dead_id;
+                if (sscanf(buffer, "%*s %d", &dead_id) == 1) {
+                    hub_remove_child(hub, dead_id);
+                }
+            }
+            else {
                 ipc_send_controller(ERR_INVALID_COMMAND, "Hub unknown command.");
             }
             
