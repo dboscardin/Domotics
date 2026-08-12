@@ -14,7 +14,8 @@ Window create_window_struct(int id) {
     Window window = {
         .id = id,
         .parent_id = CONTROLLER_ID,
-        .is_open = false,
+        .open = false,
+        .close = true,
         .time = 0
     };
     return window;
@@ -64,11 +65,25 @@ void window_run(Window *window) {
                 int sender_type = -1;
                 int parsed = sscanf(buffer, "%*s %s %s %d %d", label, pos, &sender_id, &sender_type);
 
-                if(strcmp(label, "is_open") == 0) {
+                if(strcmp(label, "open") == 0) {
                     if (strcmp(pos, "on") == 0) {
-                        window->is_open = true;
+                        window->open = true;
+                        window->close = false;
                     } else if (strcmp(pos, "off") == 0) {
-                        window->is_open = false;
+                        window->open = false;
+                        window->close = true;
+                    } else {
+                        is_valid = false;
+                    }
+                    handled = true;
+                }
+                if(strcmp(label, "close") == 0) {
+                    if (strcmp(pos, "on") == 0) {
+                        window->close = true;
+                        window->open = false;
+                    } else if (strcmp(pos, "off") == 0) {
+                        window->close = false;
+                        window->open = true;
                     } else {
                         is_valid = false;
                     }
@@ -133,7 +148,7 @@ void window_run(Window *window) {
                 "State: %s\n" 
                 "Time left open: %d s\n"
                 "----------------------------\n",
-                window->id,window->is_open ? "Open" : "Closed",window->time );
+                window->id,window->open ? "Open" : "Closed",window->time );
                 ipc_send_controller(STATUS_OK, message);
             }
             //set_parent
@@ -154,7 +169,7 @@ void window_run(Window *window) {
 
                     if(fd_sender != -1 ){
                         char resp[MAX_MSG_LEN];
-                        snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, window->id, window->is_open ? "Open" : "Closed");
+                        snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, window->id, window->open ? "Open" : "Closed");
                         ipc_send_message(fd_sender,resp);
                         close(fd_sender);
                     }
