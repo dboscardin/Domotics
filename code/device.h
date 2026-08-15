@@ -32,6 +32,6 @@ void handle_set_parent(int *parent_id, const char *buffer);
 
 void format_parent_string(int parent_id, char *parent, size_t size);
 
-static long compute_elapsed_seconds(struct timespec *active_since);
+long compute_elapsed_seconds(struct timespec *active_since);
 
 #endif

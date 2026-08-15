@@ -285,6 +285,7 @@ static int parse_id(const char *charId) {
 
     if(endptr == charId || *endptr != '\0' || val < 0) {
         printf("Invalid ID.\n");
+        ipc_send_controller(ERR_DEVICE_NOT_FOUND, "Invalid ID.");
         return -1;
     }
     return (int)val;
@@ -327,6 +328,7 @@ static bool creates_cycle(int child_id, int hub_id) {
 static void link_devices(int child_id, int hub_id) {
     if(child_id == hub_id) {
         printf("Error: you can't link a device to itself.\n");
+        ipc_send_controller(ERR_LINK_FALIED, "Error: you can't link a device to itself.");
         return;
     }
     int child_idx = find_device_by_id(child_id);
@@ -334,26 +336,31 @@ static void link_devices(int child_id, int hub_id) {
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
+        ipc_send_controller(ERR_DEVICE_NOT_FOUND, "Error: child device with this ID does not exist.");
         return;
     }
 
     if (hub_idx == -1) {
         printf("Error: Hub with ID %d does not exist.\n\n", hub_id);
+        ipc_send_controller(ERR_DEVICE_NOT_FOUND, "Error: hub device with this ID does not exist.");
         return;
     }
 
     if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER) {
         printf("Error: device ID %d is not a Hub or Timer.\n\n", hub_id);
+        ipc_send_controller(ERR_LINK_FALIED, "Error: device is not a Hub or Timer.");
         return;
     }
 
     if(creates_cycle(child_id, hub_id)) {
         printf("Error: this link would create a cycle in the hierarchy.\n\n");
+        ipc_send_controller(ERR_CYCLE_DETECTED, "Error: cycle detected.");
         return;
     }
 
     if (devices[child_idx].parent_id != -1) {
         printf("Notice: Device %d is already linked to %d. Unlink it first.\n", child_id, devices[child_idx].parent_id);
+        ipc_send_controller(ERR_LINK_FALIED, "Error: this device is alredy linked to another.");
         return;
     }
 
@@ -368,6 +375,7 @@ static void link_devices(int child_id, int hub_id) {
 
     } else {
         printf("Error: failed to connect to child %d FIFO.\n\n", child_id);
+        ipc_send_controller(ERR_LINK_FALIED, "Error: failed to connect to child.");
     }
 
     //invia messaggio al padre
@@ -393,6 +401,7 @@ static void link_devices(int child_id, int hub_id) {
 
         } else {
             printf("Error: failed to connect to parent %d FIFO.\n\n", hub_id);
+            ipc_send_controller(ERR_LINK_FALIED, "Error: failed to connect to parent.");
         }
     }
 
@@ -404,6 +413,8 @@ static void unlink_device(int child_id,int hub_id){
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
+        ipc_send_controller(ERR_DEVICE_NOT_FOUND, "Error: child device with this ID dows not exist.");
+
         return;
     }
 

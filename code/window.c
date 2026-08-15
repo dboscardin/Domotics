@@ -72,12 +72,13 @@ void window_run(Window *window) {
                         clock_gettime(CLOCK_MONOTONIC, &window->active_since);
                         window->tracking = true;
                     } else if(strcmp(pos, "off") == 0) {
-                        if (window->tracking) {
+                        /*if (window->tracking) {
                             long elapsed = compute_elapsed_seconds(&window->active_since);
                             window->time += elapsed;
                             window->tracking = false;
                         }
-                        window->is_open = false;
+                        window->is_open = false;*/
+                        valid_pos = false;
                     } else {
                         valid_pos = false;
                     }
@@ -92,9 +93,10 @@ void window_run(Window *window) {
                         }
                         window->is_open = false;
                     } else if (strcmp(pos, "off") == 0) {
-                        window->is_open = true;
-                        clock_gettime(CLOCK_MONOTONIC, &bulb->active_since);
-                        window->tracking = true;
+                        /*window->is_open = true;
+                        clock_gettime(CLOCK_MONOTONIC, &window->active_since);
+                        window->tracking = true;*/
+                        valid_pos = false;
                     }
                     handled = true;
                 }
@@ -154,7 +156,7 @@ void window_run(Window *window) {
                 "Time left open: %ld s\n"
                 "Linked to: %s\n"
                 "----------------------------\n",
-                window->id,window->is_open ? "Open" : "Closed", total_time, parent );
+                window->id, window->is_open ? "Open" : "Closed", total_time, parent );
                 ipc_send_controller(STATUS_OK, message);
             }
             //set_parent

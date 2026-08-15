@@ -64,7 +64,8 @@ void fridge_run(Fridge *fridge) {
             //Switch
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
                 bool handled = false;
-                 bool valid_pos = true;
+                bool valid_pos = true;
+                bool already_responded = false;
                 char label[32], pos[32];
                 int sender_id = -1;
                 int sender_type = -1;
@@ -97,7 +98,7 @@ void fridge_run(Fridge *fridge) {
                         fridge->is_open = false;
                     } else if (strcmp(pos, "off") == 0) {
                         fridge->is_open = true;
-                        clock_gettime(CLOCK_MONOTONIC, &bulb->active_since);
+                        clock_gettime(CLOCK_MONOTONIC, &fridge->active_since);
                         fridge->tracking = true;
                     } else {
                         valid_pos = false;
@@ -123,15 +124,35 @@ void fridge_run(Fridge *fridge) {
                     }
                     handled = true;
                 }
-                //in seguito far sì che perc e therm siano modificati solo manualmente
                 else if(strcmp(label, "perc") == 0) {
-                    int int_pos = atoi(pos);
-                    if (int_pos >= 0 && int_pos <= 100) {
-                        fridge->perc = int_pos;
+                    //comando da un genitore/controller
+                    char manual_flag[16] = "";
+                    sscanf(buffer, "%*s %*s %*s %s", manual_flag);
+
+                    if (parsed >= 4) {
+                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
+                        if (fd_parent != -1) {
+                            char message[MAX_MSG_LEN];
+                            snprintf(message, sizeof(message), "MESSAGE %d", fridge->id);
+                            ipc_send_message(fd_parent, message);
+                            close(fd_parent);
+                        }
+                        handled = true;
+                        already_responded = true;
+                    } else if (strcmp(manual_flag, "MANUAL") != 0){
+                        ipc_send_controller(ERR_PERMISSION_ERROR, "Perc is modifiable manually only.");
+                        handled = true;
+                        already_responded = true;
                     } else {
-                        valid_pos = false;
+                        int int_pos = atoi(pos);
+                        if (int_pos >= 0 && int_pos <= 100) {
+                            fridge->perc = int_pos;
+                        } else {
+                            valid_pos = false;
+                        }
+                        handled = true;
+                        already_responded = true;
                     }
-                    handled = true;
                 }
                 else if(strcmp(label, "temp") == 0) {
                     int int_pos = atoi(pos);
@@ -143,15 +164,36 @@ void fridge_run(Fridge *fridge) {
                     handled = true;
                 }
                 else if(strcmp(label, "thermostat") == 0) {
-                    int int_pos = atoi(pos);
-                    if (int_pos >= -10 && int_pos <= 20) {
-                        fridge->thermostat = int_pos;
+                    //comando da un genitore/controller
+                    char manual_flag[16] = "";
+                    sscanf(buffer, "%*s %*s %*s %s", manual_flag);
+
+                    if (parsed >= 4) {
+                        int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
+                        if (fd_parent != -1) {
+                            char message[MAX_MSG_LEN];
+                            snprintf(message, sizeof(message), "MESSAGE %d", fridge->id);
+                            ipc_send_message(fd_parent, message);
+                            close(fd_parent);
+                        }
+                        handled = true;
+                        already_responded = true;
+                    } else if (strcmp(manual_flag, "MANUAL") != 0) {
+                        ipc_send_controller(ERR_PERMISSION_ERROR, "Thermostat is modifiable manually only.");
+                        handled = true;
+                        already_responded = true;
                     } else {
-                        valid_pos = false;
+                        int int_pos = atoi(pos);
+                        if (int_pos >= -10 && int_pos <= 20) {
+                            fridge->thermostat = int_pos;
+                        } else {
+                            valid_pos = false;
+                        }
+                        handled = true;
+                        already_responded = true;
                     }
-                    handled = true;
                 }
-                if(handled){
+                if(handled && !already_responded){
                     if(parsed >= 4){
                         //il comando viene da un genitore
                         int fd_parent = ipc_open_for_writing(sender_id,(DeviceType)sender_type);
@@ -171,15 +213,15 @@ void fridge_run(Fridge *fridge) {
                             ipc_send_controller(ERR_INVALID_PARAM, message);
                         }
                     }
-                } else {
+                } else if (!handled) {
                     //se label non valido 
                     if (parsed >= 4) {
                         // Se ci ha chiamato un genitore dobbiamo comunque sbloccarlo
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
-                            char msg[MAX_MSG_LEN];
-                            snprintf(msg, sizeof(msg), "MSG %d", fridge->id);
-                            ipc_send_message(fd_parent, msg);
+                            char message[MAX_MSG_LEN];
+                            snprintf(message, sizeof(message), "MESSAGE %d", fridge->id);
+                            ipc_send_message(fd_parent, message);
                             close(fd_parent);
                         }
                     } else {
