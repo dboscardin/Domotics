@@ -28,6 +28,7 @@ void window_run(Window *window) {
     int fd = ipc_open_for_listening(window->id, DEVICE_WINDOW);
     char buffer[BUFFER_SIZE];
     while(1) {
+
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
 
@@ -42,15 +43,15 @@ void window_run(Window *window) {
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
                     int fd_parend = ipc_open_for_writing(sender,(DeviceType)sender_type);
                     if(fd_parend != -1){
-                        char msg[32];
-                        snprintf(msg, sizeof(msg), "MSG %d", window->id);
-                        ipc_send_message(fd_parend,msg);
+                        char message[32];
+                        snprintf(message, sizeof(message), "MESSAGE %d", window->id);
+                        ipc_send_message(fd_parend, message);
                         close(fd_parend);
                     }
                 } else {
-                    char msg[MAX_MSG_LEN];
-                    snprintf(msg,sizeof(msg),"Device Window %d deleted.", window->id );
-                    ipc_send_controller(STATUS_OK, msg);
+                    char message[MAX_MSG_LEN];
+                    snprintf(message ,sizeof(message),"Device Window %d deleted.", window->id );
+                    ipc_send_controller(STATUS_OK, message);
                     
                 }
                 close(fd);
@@ -58,8 +59,8 @@ void window_run(Window *window) {
             }
             //switch
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
-                bool is_valid = true;
                 bool handled = false;
+                bool valid_pos = true;
                 char label[32], pos[32];
                 int sender_id = -1;
                 int sender_type = -1;
@@ -68,12 +69,32 @@ void window_run(Window *window) {
                 if(strcmp(label, "open") == 0) {
                     if (strcmp(pos, "on") == 0) {
                         window->is_open = true;
+                        clock_gettime(CLOCK_MONOTONIC, &window->active_since);
+                        window->tracking = true;
+                    } else if(strcmp(pos, "off") == 0) {
+                        if (window->tracking) {
+                            long elapsed = compute_elapsed_seconds(&window->active_since);
+                            window->time += elapsed;
+                            window->tracking = false;
+                        }
+                        window->is_open = false;
+                    } else {
+                        valid_pos = false;
                     }
                     handled = true;
                 }
                 else if(strcmp(label, "close") == 0) {
                     if (strcmp(pos, "on") == 0) {
+                        if (window->tracking) {
+                            long elapsed = compute_elapsed_seconds(&window->active_since);
+                            window->time += elapsed;
+                            window->tracking = false;
+                        }
                         window->is_open = false;
+                    } else if (strcmp(pos, "off") == 0) {
+                        window->is_open = true;
+                        clock_gettime(CLOCK_MONOTONIC, &bulb->active_since);
+                        window->tracking = true;
                     }
                     handled = true;
                 }
@@ -83,15 +104,15 @@ void window_run(Window *window) {
                         // Il comando viene da un genitore
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if(fd_parent != -1){
-                            char msg[MAX_MSG_LEN];
-                            snprintf(msg, sizeof(msg), "MSG %d", window->id);
-                            ipc_send_message(fd_parent, msg);
+                            char message[MAX_MSG_LEN];
+                            snprintf(message, sizeof(message), "MESSAGE %d", window->id);
+                            ipc_send_message(fd_parent, message);
                             close(fd_parent); 
                         }
                     } else {
                         // Comando dal controller
                         char message[MAX_MSG_LEN];
-                        if(is_valid) {
+                        if(valid_pos) {
                             snprintf(message, sizeof(message), "Window %d, %s set to: %s", window->id, label, pos);
                             ipc_send_controller(STATUS_OK, message);
                         } else {
@@ -104,9 +125,9 @@ void window_run(Window *window) {
                     if (parsed >= 4) {
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
-                            char msg[MAX_MSG_LEN];
-                            snprintf(msg, sizeof(msg), "MSG %d", window->id);
-                            ipc_send_message(fd_parent, msg);
+                            char message[MAX_MSG_LEN];
+                            snprintf(message, sizeof(message), "MESSAGE %d", window->id);
+                            ipc_send_message(fd_parent, message);
                             close(fd_parent);
                         }
                     } else {
@@ -119,15 +140,21 @@ void window_run(Window *window) {
                 char message[MAX_MSG_LEN];
                 char parent[32];
 
+                long total_time = window->time;
+                if (window->tracking) {
+                    total_time += compute_elapsed_seconds(&window->active_since);
+                }
+
                 format_parent_string(window->parent_id, parent, sizeof(parent));
 
                 snprintf(message,sizeof(message),
                 "\n------- Window Details -----\n"
                 "ID: %d\n"
                 "State: %s\n" 
-                "Time left open: %d s\n"
+                "Time left open: %ld s\n"
+                "Linked to: %s\n"
                 "----------------------------\n",
-                window->id,window->is_open ? "Open" : "Closed",window->time );
+                window->id,window->is_open ? "Open" : "Closed", total_time, parent );
                 ipc_send_controller(STATUS_OK, message);
             }
             //set_parent
@@ -137,18 +164,18 @@ void window_run(Window *window) {
             //mirror
             else if(strncmp(buffer , CMD_MIRROR, strlen(CMD_MIRROR)) == 0){
 
-                int sender_id;
-                int sender_type;
+                int sender_id = -1;
+                int sender_type = -1;
 
                 //estraggo id dell'hub
                 if(sscanf(buffer, "%*s %d %d", &sender_id, &sender_type) == 2){
 
                     //apro fifo hub in scrittura
-                    int fd_sender = ipc_open_for_writing(sender_id, sender_type);
+                    int fd_sender = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
 
                     if(fd_sender != -1 ){
                         char resp[MAX_MSG_LEN];
-                        snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, window->id, window->is_open ? "Open" : "Closed");
+                        snprintf(resp, sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, window->id, window->is_open ? "Open" : "Closed");
                         ipc_send_message(fd_sender,resp);
                         close(fd_sender);
                     }

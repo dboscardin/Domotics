@@ -31,6 +31,7 @@ void fridge_run(Fridge *fridge) {
 
     int fd = ipc_open_for_listening(fridge->id, DEVICE_FRIDGE);
     char buffer[BUFFER_SIZE];
+    
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
@@ -46,15 +47,15 @@ void fridge_run(Fridge *fridge) {
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
                     int fd_parent = ipc_open_for_writing(sender,(DeviceType)sender_type);
                     if(fd_parent != -1){
-                        char msg[32];
-                        snprintf(msg, sizeof(msg), "MSG %d", fridge->id);
-                        ipc_send_message(fd_parent,msg);
+                        char message[32];
+                        snprintf(message, sizeof(message), "MESSAGE %d", fridge->id);
+                        ipc_send_message(fd_parent, message);
                         close(fd_parent);
                     }
                 } else {
-                    char msg[MAX_MSG_LEN];
-                    snprintf(msg,sizeof(msg),"Device Fridge %d deleted.", fridge->id );
-                    ipc_send_controller(STATUS_OK, msg);
+                    char message[MAX_MSG_LEN];
+                    snprintf(message, sizeof(message),"Device Fridge %d deleted.", fridge->id );
+                    ipc_send_controller(STATUS_OK, message);
                     
                 }
                 close(fd);
@@ -62,48 +63,63 @@ void fridge_run(Fridge *fridge) {
             }
             //Switch
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
-                bool is_valid = true;
                 bool handled = false;
+                 bool valid_pos = true;
                 char label[32], pos[32];
                 int sender_id = -1;
                 int sender_type = -1;
-                int parsed = sscanf(buffer, "%*s %s %s %d %d", label,pos,&sender_id,&sender_type);
+                int parsed = sscanf(buffer, "%*s %s %s %d %d", label, pos, &sender_id, &sender_type);
 
                 if(strcmp(label, "open") == 0) {
                     if (strcmp(pos, "on") == 0) {
                         fridge->is_open = true;
+                        clock_gettime(CLOCK_MONOTONIC, &fridge->active_since);
+                        fridge->tracking = true;
                     } else if (strcmp(pos, "off") == 0) {
+                        if (fridge->tracking) {
+                            long elapsed = compute_elapsed_seconds(&fridge->active_since);
+                            fridge->time += elapsed;
+                            fridge->tracking = false;
+                        }
                         fridge->is_open = false;
                     } else {
-                        is_valid = false;
+                        valid_pos = false;
                     }
                     handled = true;
                 }
                 if(strcmp(label, "close") == 0) {
                     if (strcmp(pos, "on") == 0) {
+                        if (fridge->tracking) {
+                            long elapsed = compute_elapsed_seconds(&fridge->active_since);
+                            fridge->time += elapsed;
+                            fridge->tracking = false;
+                        }
                         fridge->is_open = false;
                     } else if (strcmp(pos, "off") == 0) {
                         fridge->is_open = true;
+                        clock_gettime(CLOCK_MONOTONIC, &bulb->active_since);
+                        fridge->tracking = true;
                     } else {
-                        is_valid = false;
+                        valid_pos = false;
                     }
                     handled = true;
                 }
-                else if(strcmp(label, "time") == 0) {
+                /*else if(strcmp(label, "time") == 0) {
                     int int_pos = atoi(pos);
                     if (int_pos >= 0) {
                         fridge->time = int_pos;
                     } else {
-                        is_valid = false;
+                        valid_pos = false;
                     }
                     handled = true;
-                }
+                }*/
+                //aggiungere chiusura automatica
                 else if(strcmp(label, "delay") == 0) {
                     int int_pos = atoi(pos);
                     if (int_pos >= 0) {
                         fridge->delay = int_pos;
                     } else {
-                        is_valid = false;
+                        valid_pos = false;
                     }
                     handled = true;
                 }
@@ -113,7 +129,7 @@ void fridge_run(Fridge *fridge) {
                     if (int_pos >= 0 && int_pos <= 100) {
                         fridge->perc = int_pos;
                     } else {
-                        is_valid = false;
+                        valid_pos = false;
                     }
                     handled = true;
                 }
@@ -122,7 +138,7 @@ void fridge_run(Fridge *fridge) {
                     if (int_pos >= -10 && int_pos <= 50) {
                         fridge->temp = int_pos;
                     } else {
-                        is_valid = false;
+                        valid_pos = false;
                     }
                     handled = true;
                 }
@@ -131,7 +147,7 @@ void fridge_run(Fridge *fridge) {
                     if (int_pos >= -10 && int_pos <= 20) {
                         fridge->thermostat = int_pos;
                     } else {
-                        is_valid = false;
+                        valid_pos = false;
                     }
                     handled = true;
                 }
@@ -148,7 +164,7 @@ void fridge_run(Fridge *fridge) {
                     } else {
                         //comando dal controller
                         char message[MAX_MSG_LEN];
-                        if (is_valid) {
+                        if (valid_pos) {
                            snprintf(message, sizeof(message), "Fridge %d, %s set to: %s\n", fridge->id, label, pos);                            ipc_send_controller(STATUS_OK, message);
                         } else {
                             snprintf(message, sizeof(message), "Invalid position for %s.", label);
@@ -176,18 +192,23 @@ void fridge_run(Fridge *fridge) {
                 char message[MAX_MSG_LEN];
                 char parent[32];
 
+                long total_time = fridge->time;
+                if (fridge->tracking) { 
+                    total_time += compute_elapsed_seconds(&fridge->active_since);
+                }
+
                 format_parent_string(fridge->parent_id, parent, sizeof(parent));
                 snprintf(message,sizeof(message),
                 "\n------- Fridge Details -----\n"
                 "ID: %d\n"
                 "Door State: %s\n"
-                "Time left open: %d s\n"
+                "Time left open: %ld s\n"
                 "Delay: %d s\n"
                 "Fill percentage: %d %%\n"
                 "Current Temp: %d °C\n"
                 "Thermostat: %d °C\n"
                 "----------------------------\n",
-                fridge->id,fridge->is_open ? "Open" : "Closed",fridge->time,fridge->delay,fridge->perc,fridge->temp,fridge->thermostat);
+                fridge->id,fridge->is_open ? "Open" : "Closed", total_time, fridge->delay, fridge->perc, fridge->temp, fridge->thermostat);
                 ipc_send_controller(STATUS_OK, message);
             }
             //set_parent
@@ -197,18 +218,18 @@ void fridge_run(Fridge *fridge) {
             //mirror
             else if(strncmp(buffer , CMD_MIRROR, strlen(CMD_MIRROR)) == 0){
 
-                int sender_id;
-                int sender_type;
+                int sender_id = -1;
+                int sender_type = -1;
 
                 //estraggo id dell'hub
                 if(sscanf(buffer, "%*s %d %d", &sender_id, &sender_type) == 2){
 
                     //apro fifo hub in scrittura
-                    int fd_sender = ipc_open_for_writing(sender_id, sender_type);
+                    int fd_sender = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
 
                     if(fd_sender != -1 ){
                         char resp[MAX_MSG_LEN];
-                        snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, fridge->id, fridge->is_open ? "Open" : "Closed");
+                        snprintf(resp, sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, fridge->id, fridge->is_open ? "Open" : "Closed");
                         ipc_send_message(fd_sender,resp);
                         close(fd_sender);
                     }

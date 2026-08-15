@@ -30,14 +30,15 @@ void bulb_run(Bulb *bulb) {
     int fd = ipc_open_for_listening(bulb->id, DEVICE_BULB);
     char buffer[BUFFER_SIZE];
 
-
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
 
+            //delay
+            ipc_simulate_delay();
+
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
-
                 int sender = -1;
                 int sender_type = -1;
                 
@@ -46,7 +47,7 @@ void bulb_run(Bulb *bulb) {
                     if(fd_parent != -1){
                         char message[MAX_MSG_LEN];
                         snprintf(message, sizeof(message), "MESSAGE %d", bulb->id);
-                        ipc_send_message(fd_parent,message);
+                        ipc_send_message(fd_parent, message);
                         close(fd_parent);
                     }
                 } else {
@@ -87,9 +88,9 @@ void bulb_run(Bulb *bulb) {
                         //il comando viene da un genitore quindi non sporco la shell
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
-                            char msg[MAX_MSG_LEN];
-                            snprintf(msg, sizeof(msg), "MSG %d", bulb->id);
-                            ipc_send_message(fd_parent, msg);
+                            char message[MAX_MSG_LEN];
+                            snprintf(message, sizeof(message), "MESSAGE %d", bulb->id);
+                            ipc_send_message(fd_parent, message);
                             close(fd_parent);
                         }
                     } else {
@@ -108,9 +109,9 @@ void bulb_run(Bulb *bulb) {
                         // Se ci ha chiamato un genitore dobbiamo comunque sbloccarlo
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
-                            char msg[MAX_MSG_LEN];
-                            snprintf(msg, sizeof(msg), "MSG %d", bulb->id);
-                            ipc_send_message(fd_parent, msg);
+                            char message[MAX_MSG_LEN];
+                            snprintf(message, sizeof(message), "MESSAGE %d", bulb->id);
+                            ipc_send_message(fd_parent, message);
                             close(fd_parent);
                         }
                     } else {

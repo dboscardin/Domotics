@@ -117,7 +117,7 @@ void timer_run(TimerDevice *timer){
                 int fd_child = ipc_open_for_writing(child_id, child_type);
                 if (fd_child != -1) {
                     char cmd[64];
-                    snprintf(cmd, sizeof(cmd), "%s %s on %d %d", CMD_SWITCH, label, timer->id, DEVICE_TIMER);
+                    snprintf(cmd, sizeof(cmd), "%s %s on %d %d", CMD_SWITCH, labelOn, timer->id, DEVICE_TIMER);
                     ipc_send_message(fd_child, cmd); 
                     close(fd_child);
 
@@ -144,7 +144,7 @@ void timer_run(TimerDevice *timer){
                 int fd_child = ipc_open_for_writing(child_id, child_type);
                 if (fd_child != -1) {
                     char cmd[64];
-                    snprintf(cmd, sizeof(cmd), "%s %s off %d %d", CMD_SWITCH, label, timer->id, DEVICE_TIMER);
+                    snprintf(cmd, sizeof(cmd), "%s %s off %d %d", CMD_SWITCH, labelOff, timer->id, DEVICE_TIMER);
                     ipc_send_message(fd_child, cmd);
                     close(fd_child);
 
