@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <time.h>
 #include <sys/types.h>
 #include "device.h"
 #include "protocol.h"

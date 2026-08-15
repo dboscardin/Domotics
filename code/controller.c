@@ -328,7 +328,7 @@ static bool creates_cycle(int child_id, int hub_id) {
 static void link_devices(int child_id, int hub_id) {
     if(child_id == hub_id) {
         printf("Error: you can't link a device to itself.\n");
-        ipc_send_controller(ERR_LINK_FALIED, "Error: you can't link a device to itself.");
+        ipc_send_controller(ERR_LINK_FAILED, "Error: you can't link a device to itself.");
         return;
     }
     int child_idx = find_device_by_id(child_id);
@@ -348,7 +348,7 @@ static void link_devices(int child_id, int hub_id) {
 
     if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER) {
         printf("Error: device ID %d is not a Hub or Timer.\n\n", hub_id);
-        ipc_send_controller(ERR_LINK_FALIED, "Error: device is not a Hub or Timer.");
+        ipc_send_controller(ERR_LINK_FAILED, "Error: device is not a Hub or Timer.");
         return;
     }
 
@@ -360,7 +360,7 @@ static void link_devices(int child_id, int hub_id) {
 
     if (devices[child_idx].parent_id != -1) {
         printf("Notice: Device %d is already linked to %d. Unlink it first.\n", child_id, devices[child_idx].parent_id);
-        ipc_send_controller(ERR_LINK_FALIED, "Error: this device is alredy linked to another.");
+        ipc_send_controller(ERR_LINK_FAILED, "Error: this device is alredy linked to another.");
         return;
     }
 
@@ -375,7 +375,7 @@ static void link_devices(int child_id, int hub_id) {
 
     } else {
         printf("Error: failed to connect to child %d FIFO.\n\n", child_id);
-        ipc_send_controller(ERR_LINK_FALIED, "Error: failed to connect to child.");
+        ipc_send_controller(ERR_LINK_FAILED, "Error: failed to connect to child.");
     }
 
     //invia messaggio al padre
@@ -401,7 +401,7 @@ static void link_devices(int child_id, int hub_id) {
 
         } else {
             printf("Error: failed to connect to parent %d FIFO.\n\n", hub_id);
-            ipc_send_controller(ERR_LINK_FALIED, "Error: failed to connect to parent.");
+            ipc_send_controller(ERR_LINK_FAILED, "Error: failed to connect to parent.");
         }
     }
 
