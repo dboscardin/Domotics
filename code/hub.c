@@ -307,14 +307,21 @@ void hub_run(HubDevice *hub){
 
                     //Traduzione del comando
                     const char *out_label = label;
+                    const char *out_pos = pos;
                     if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
-                        out_label = "open";
+                        if (strcmp(pos, "on") == 0) {
+                            out_label = "open";
+                            out_pos = "on";
+                        } else {
+                            out_label = "close";
+                            out_pos = "on";
+                        }
                     }
 
                     int fd_child = ipc_open_for_writing(child_id, child_type);
                     if (fd_child != -1) {
                         char cmd[64];
-                        snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, out_label, pos, hub->id, DEVICE_HUB);
+                        snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, out_label, out_pos, hub->id, DEVICE_HUB);
                         ipc_send_message(fd_child, cmd);
                         close(fd_child);
                     } 

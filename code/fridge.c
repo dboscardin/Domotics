@@ -41,14 +41,14 @@ void fridge_run(Fridge *fridge) {
         
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
-                int sender = -1;
+                int sender = -1;    
                 int sender_type = -1;
                 
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
                     int fd_parent = ipc_open_for_writing(sender,(DeviceType)sender_type);
                     if(fd_parent != -1){
                         char message[32];
-                        snprintf(message, sizeof(message), "MESSAGE %d", fridge->id);
+                        snprintf(message, sizeof(message), "MSG %d", fridge->id);
                         ipc_send_message(fd_parent, message);
                         close(fd_parent);
                     }
@@ -133,7 +133,7 @@ void fridge_run(Fridge *fridge) {
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
                             char message[MAX_MSG_LEN];
-                            snprintf(message, sizeof(message), "MESSAGE %d", fridge->id);
+                            snprintf(message, sizeof(message), "MSG %d", fridge->id);
                             ipc_send_message(fd_parent, message);
                             close(fd_parent);
                         }
@@ -172,7 +172,7 @@ void fridge_run(Fridge *fridge) {
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
                             char message[MAX_MSG_LEN];
-                            snprintf(message, sizeof(message), "MESSAGE %d", fridge->id);
+                            snprintf(message, sizeof(message), "MSG %d", fridge->id);
                             ipc_send_message(fd_parent, message);
                             close(fd_parent);
                         }
@@ -220,7 +220,7 @@ void fridge_run(Fridge *fridge) {
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
                             char message[MAX_MSG_LEN];
-                            snprintf(message, sizeof(message), "MESSAGE %d", fridge->id);
+                            snprintf(message, sizeof(message), "MSG %d", fridge->id);
                             ipc_send_message(fd_parent, message);
                             close(fd_parent);
                         }

@@ -22,3 +22,6 @@
 
 # File di configurazione generati
 domotics
+
+#pdf progetto
+*.pdf

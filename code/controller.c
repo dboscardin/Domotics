@@ -285,7 +285,6 @@ static int parse_id(const char *charId) {
 
     if(endptr == charId || *endptr != '\0' || val < 0) {
         printf("Invalid ID.\n");
-        ipc_send_controller(ERR_DEVICE_NOT_FOUND, "Invalid ID.");
         return -1;
     }
     return (int)val;
@@ -328,7 +327,6 @@ static bool creates_cycle(int child_id, int hub_id) {
 static void link_devices(int child_id, int hub_id) {
     if(child_id == hub_id) {
         printf("Error: you can't link a device to itself.\n");
-        ipc_send_controller(ERR_LINK_FAILED, "Error: you can't link a device to itself.");
         return;
     }
     int child_idx = find_device_by_id(child_id);
@@ -336,31 +334,26 @@ static void link_devices(int child_id, int hub_id) {
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
-        ipc_send_controller(ERR_DEVICE_NOT_FOUND, "Error: child device with this ID does not exist.");
         return;
     }
 
     if (hub_idx == -1) {
         printf("Error: Hub with ID %d does not exist.\n\n", hub_id);
-        ipc_send_controller(ERR_DEVICE_NOT_FOUND, "Error: hub device with this ID does not exist.");
         return;
     }
 
     if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER) {
         printf("Error: device ID %d is not a Hub or Timer.\n\n", hub_id);
-        ipc_send_controller(ERR_LINK_FAILED, "Error: device is not a Hub or Timer.");
         return;
     }
 
     if(creates_cycle(child_id, hub_id)) {
         printf("Error: this link would create a cycle in the hierarchy.\n\n");
-        ipc_send_controller(ERR_CYCLE_DETECTED, "Error: cycle detected.");
         return;
     }
 
     if (devices[child_idx].parent_id != -1) {
         printf("Notice: Device %d is already linked to %d. Unlink it first.\n", child_id, devices[child_idx].parent_id);
-        ipc_send_controller(ERR_LINK_FAILED, "Error: this device is alredy linked to another.");
         return;
     }
 
@@ -375,7 +368,6 @@ static void link_devices(int child_id, int hub_id) {
 
     } else {
         printf("Error: failed to connect to child %d FIFO.\n\n", child_id);
-        ipc_send_controller(ERR_LINK_FAILED, "Error: failed to connect to child.");
     }
 
     //invia messaggio al padre
@@ -401,7 +393,6 @@ static void link_devices(int child_id, int hub_id) {
 
         } else {
             printf("Error: failed to connect to parent %d FIFO.\n\n", hub_id);
-            ipc_send_controller(ERR_LINK_FAILED, "Error: failed to connect to parent.");
         }
     }
 
@@ -413,8 +404,6 @@ static void unlink_device(int child_id,int hub_id){
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
-        ipc_send_controller(ERR_DEVICE_NOT_FOUND, "Error: child device with this ID dows not exist.");
-
         return;
     }
 
@@ -423,7 +412,7 @@ static void unlink_device(int child_id,int hub_id){
         return;
     }
 
-    if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER) {
+    if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER && devices[hub_idx].type != DEVICE_CONTROLLER) {
         printf("Error: device ID %d is not a Hub or Timer.\n\n", hub_id);
         return;
     }
@@ -523,12 +512,13 @@ static bool label_valid_for_type(DeviceType type, const char *label) {
         case DEVICE_WINDOW:
             return strcmp(label, "open") == 0 || strcmp(label, "close") == 0;
         case DEVICE_FRIDGE:
+            if (strcmp(label, "perc") == 0 || strcmp(label, "thermostat") == 0) {
+                printf("Error: '%s' can only be modified manually via bash script.\n", label);
+                return false;
+            }
             return strcmp(label, "open")       == 0 ||
                 strcmp(label, "close")      == 0 ||
-                strcmp(label, "delay")      == 0 ||
-                strcmp(label, "perc")       == 0 ||
-                strcmp(label, "temp")       == 0 ||
-                strcmp(label, "thermostat") == 0;
+                strcmp(label, "delay")      == 0;
         case DEVICE_HUB:
         case DEVICE_TIMER:
             // tutto
@@ -558,11 +548,7 @@ static bool switch_check(char *tokens[], int count) {
         {"power",       true},
         {"open",        true},
         {"close",       true},
-        {"time",        false},
         {"delay",       false},
-        {"perc",        false},
-        {"temp",        false},
-        {"thermostat",  false},
         {"begin",       false},
         {"end",         false}
     };
@@ -596,7 +582,30 @@ static void switch_device(char *tokens[]) {
             return;
         }
         controller_state = (strcmp(tokens[3], "on") == 0);
-        printf("Controller main switch set to: %s\n\n", controller_state ? "on" : "off");
+        printf("Controller main switch set to: %s. Cascading to all connected devices...\n\n", controller_state ? "on" : "off");
+        
+        // Propaga il comando a tutti i figli diretti del Controller
+        for (int i = 0; i < device_count; i++) {
+            if (devices[i].id != CONTROLLER_ID && devices[i].parent_id == CONTROLLER_ID) {
+                int fd_child = ipc_open_for_writing(devices[i].id, devices[i].type);
+                if (fd_child != -1) {
+                    char cmd[64];
+                    const char *out_label = "power";
+                    const char *out_pos = tokens[3];
+                    
+                    // Traduzione per finestre e frigo
+                    if (devices[i].type == DEVICE_WINDOW || devices[i].type == DEVICE_FRIDGE) {
+                        out_label = (strcmp(tokens[3], "on") == 0) ? "open" : "close";
+                        out_pos = "on"; 
+                    }
+                    
+                    // Invio il comando formattato con l'identità del Controller
+                    snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, out_label, out_pos, CONTROLLER_ID, DEVICE_CONTROLLER);
+                    ipc_send_message(fd_child, cmd);
+                    close(fd_child);
+                }
+            }
+        }
         return;
     }
     int index = find_device_by_id(id);
@@ -702,7 +711,42 @@ static void *listener_thread(void *arg){
 
         if(n > 0){
             controller_buf[n] = '\0';
+
+            if (strncmp(controller_buf, CMD_INFO, strlen(CMD_INFO)) == 0) {
+                pthread_mutex_lock(&mutex);
+                printf("\n\r\033[KManual Override! Requesting Controller Info...");
+                device_info(CONTROLLER_ID);
+                printf("domotics> ");
+                fflush(stdout);
+                pthread_mutex_unlock(&mutex);
+                continue;
+            }
+            else if (strncmp(controller_buf, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
+                char cmd[32], label[32], pos[32];
+                if (sscanf(controller_buf, "%s %s %s", cmd, label, pos) >= 3) {
+                    // Ricostruisce i token come se fossero stati scritti da tastiera
+                    char *tokens[] = {"switch", "0", label, pos};
+                    pthread_mutex_lock(&mutex);
+                    printf("\n\r\033[KManual Override! Executing Switch on Controller...\n");
+                    if (switch_check(tokens, 4)) {
+                        switch_device(tokens);
+                    }
+                    printf("domotics> ");
+                    fflush(stdout);
+                    pthread_mutex_unlock(&mutex);
+                }
+                continue;
+            }
+            else if (strncmp(controller_buf, CMD_DELETE, strlen(CMD_DELETE)) == 0) {
+                pthread_mutex_lock(&mutex);
+                printf("\n\r\033[KManual Override! Error: Cannot delete the Controller.\n");
+                printf("domotics> ");
+                fflush(stdout);
+                pthread_mutex_unlock(&mutex);
+                continue;
+            }
             
+            //messagi dai dispositivi figli
             char *message = strchr(controller_buf, ' ');
             if(message != NULL){
                 message++;
@@ -711,7 +755,8 @@ static void *listener_thread(void *arg){
             }
 
             //sovrascivo il prompt domotics con il messaggio e lo riscrivo
-            printf("%s\n", message);
+            printf("\r\033[K%s\n", message);
+            printf("domotics> ");
             fflush(stdout);
 
             pthread_mutex_lock(&mutex);
