@@ -41,7 +41,7 @@ void fridge_run(Fridge *fridge) {
         
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
-                int sender = -1;
+                int sender = -1;    
                 int sender_type = -1;
                 
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
