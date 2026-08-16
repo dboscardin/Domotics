@@ -44,7 +44,7 @@ void window_run(Window *window) {
                     int fd_parend = ipc_open_for_writing(sender,(DeviceType)sender_type);
                     if(fd_parend != -1){
                         char message[32];
-                        snprintf(message, sizeof(message), "MESSAGE %d", window->id);
+                        snprintf(message, sizeof(message), "MSG %d", window->id);
                         ipc_send_message(fd_parend, message);
                         close(fd_parend);
                     }
@@ -107,7 +107,7 @@ void window_run(Window *window) {
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if(fd_parent != -1){
                             char message[MAX_MSG_LEN];
-                            snprintf(message, sizeof(message), "MESSAGE %d", window->id);
+                            snprintf(message, sizeof(message), "MSG %d", window->id);
                             ipc_send_message(fd_parent, message);
                             close(fd_parent); 
                         }
@@ -128,7 +128,7 @@ void window_run(Window *window) {
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
                             char message[MAX_MSG_LEN];
-                            snprintf(message, sizeof(message), "MESSAGE %d", window->id);
+                            snprintf(message, sizeof(message), "MSG %d", window->id);
                             ipc_send_message(fd_parent, message);
                             close(fd_parent);
                         }
