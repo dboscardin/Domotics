@@ -107,10 +107,13 @@ void timer_run(TimerDevice *timer){
 
             //controllo il device
             const char *labelOn = "power";
-            const char *labelOff = labelOn;
+            const char *labelOff = "power";
+            const char *actionOff = "off"; // Azione standard di spegnimento
+            
             if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
                 labelOn = "open";
                 labelOff = "close";
+                actionOff = "on"; // Finestre e frighi si chiudono premendo il tasto close
             }
 
             if (strcmp(current_time, timer->begin) == 0 && strcmp(last_triggered, timer->begin) != 0) {
@@ -144,7 +147,7 @@ void timer_run(TimerDevice *timer){
                 int fd_child = ipc_open_for_writing(child_id, child_type);
                 if (fd_child != -1) {
                     char cmd[64];
-                    snprintf(cmd, sizeof(cmd), "%s %s off %d %d", CMD_SWITCH, labelOff, timer->id, DEVICE_TIMER);
+                    snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, labelOff, actionOff, timer->id, DEVICE_TIMER);
                     ipc_send_message(fd_child, cmd);
                     close(fd_child);
 
@@ -290,19 +293,22 @@ void timer_run(TimerDevice *timer){
                         DeviceType child_type = timer->children[0].type;
 
                         //controllo il device
-                        const char *labelOn = "power";
-                        const char *labelOff = labelOn;
+                        const char *out_label = label;
+                        const char *out_pos = pos;
                         if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
-                            labelOn = "open";
-                            labelOff = "close";
+                            if (strcmp(pos, "on") == 0) {
+                                out_label = "open";
+                                out_pos = "on";
+                            } else {
+                                out_label = "close";
+                                out_pos = "on";
+                            }
                         }
                         
                         int fd_child = ipc_open_for_writing(child_id, child_type);
                         if (fd_child != -1) {
                             char cmd[64];
-                            snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, label, pos, timer->id, DEVICE_TIMER);
-                            ipc_send_message(fd_child, cmd);
-                            close(fd_child);
+                            snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, out_label, out_pos, timer->id, DEVICE_TIMER);
                         }
                         
                         int msg = 0;
