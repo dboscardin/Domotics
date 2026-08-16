@@ -281,8 +281,14 @@ void fridge_run(Fridge *fridge) {
             else {
                 ipc_send_controller(ERR_INVALID_COMMAND, "Fridge unknown command.");
             }
-        } else {
-            usleep(50000); // il processo consuma meno risorse
+        } else if(fridge->tracking) {
+            long elapsed = compute_elapsed_seconds(&fridge->active_since);
+            if (elapsed >= fridge->delay) {
+                fridge->time += elapsed;
+                fridge->tracking = false;
+                fridge->is_open = false;
+                ipc_send_controller(STATUS_OK, "Fridge auto-closed after delay.");
+            }
         }
     }
     close(fd);

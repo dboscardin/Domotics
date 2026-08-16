@@ -87,7 +87,7 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
         
         int fd_child = ipc_open_for_writing(hub->children[i].id, hub->children[i].type);
         if (fd_child != -1) {
-            char cmd[32];
+            char cmd[128];
             snprintf(cmd, sizeof(cmd), "%s %d %d", CMD_MIRROR, hub->id, DEVICE_HUB);
             ipc_send_message(fd_child, cmd);
             close(fd_child);

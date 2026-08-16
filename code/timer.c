@@ -48,7 +48,7 @@ static void get_timer_state(TimerDevice *timer, int fd_ascolto, char *out_state,
 
     int fd_child = ipc_open_for_writing(child_id, child_type);
     if (fd_child != -1) {
-        char cmd[32];
+        char cmd[128];
         snprintf(cmd, sizeof(cmd), "%s %d %d", CMD_MIRROR, timer->id, DEVICE_TIMER);
         ipc_send_message(fd_child, cmd);
         close(fd_child);
