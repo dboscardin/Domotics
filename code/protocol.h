@@ -28,7 +28,7 @@
 #define CMD_MIRROR          "MIRROR"
 #define CMD_MIRROR_RESP     "MIRROR_RESP"
 #define CMD_CHILD_DIED      "CHILD_DIED"
- 
+
 #define MAX_MSG_LEN 512
 #define FIFO_PATH_FMT "/tmp/domotica_%s_%d.fifo"
 #define FIFO_CONTROLLER "/tmp/domotica_controller_0.fifo"

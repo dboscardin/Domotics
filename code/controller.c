@@ -423,7 +423,7 @@ static void unlink_device(int child_id,int hub_id){
         return;
     }
 
-    if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER) {
+    if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER && devices[hub_idx].type != DEVICE_CONTROLLER) {
         printf("Error: device ID %d is not a Hub or Timer.\n\n", hub_id);
         return;
     }
