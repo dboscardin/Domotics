@@ -6,6 +6,8 @@ TARGET = domotics
 SRCS = code/main.c code/controller.c code/bulb.c code/window.c code/fridge.c code/ipc.c code/hub.c code/device.c code/timer.c
 OBJS = $(SRCS:.c=.o)
 
+SCENARIO ?=
+
 .PHONY: all build clean run
 
 all: build
@@ -31,7 +33,15 @@ clean:
 	rm -f /tmp/domotica_* 2>/dev/null || true
 #prima compila se serve, poi esegue il programma
 run: build
-	./$(TARGET)
+		@if [ -n "$(SCENARIO)" ]; then \
+		echo "============================================="; \
+		echo " Avvio domotics con scenario: $(SCENARIO)"; \
+		echo "============================================="; \
+		cat $(SCENARIO) - | ./$(TARGET); \
+	else \
+		echo "Avvio normale..."; \
+		./$(TARGET); \
+	fi
 
 # A MAekfile contains
 # A list of source files

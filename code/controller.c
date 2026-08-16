@@ -80,7 +80,7 @@ static int count_direct_children(int parent_id) {
 // Funzione per terminare tutti i processi figli
 static void cleanup_all_devices(void) {
     for (int i = 0; i < device_count; i++) {
-        if (devices[i].fifo_fd == CONTROLLER_ID) {
+        if (devices[i].id == CONTROLLER_ID) {
             continue;
         }
         if (devices[i].fifo_fd != -1) {
@@ -353,7 +353,9 @@ static void link_devices(int child_id, int hub_id) {
     }
 
     if (devices[child_idx].parent_id != -1) {
-        printf("Notice: Device %d is already linked to %d. Unlink it first.\n", child_id, devices[child_idx].parent_id);
+        printf("Notice: Device %d is already linked to %d. Unlinking...\n", child_id, devices[child_idx].parent_id);
+        unlink_device(child_id, devices[child_idx].parent_id);
+        link_devices(child_id,hub_id);
         return;
     }
 
