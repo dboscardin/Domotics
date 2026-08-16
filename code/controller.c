@@ -79,6 +79,9 @@ static int count_direct_children(int parent_id) {
 
 // Funzione per terminare tutti i processi figli
 static void cleanup_all_devices(void) {
+
+    signal(SIGCHLD, SIG_DFL);
+    
     for (int i = 0; i < device_count; i++) {
         if (devices[i].id == CONTROLLER_ID) {
             continue;
@@ -99,40 +102,12 @@ static void cleanup_all_devices(void) {
 // Gestione della chiusura tramite Ctrl+C
 static void handle_sigint(int sig) {
     (void)sig;
-    int status;
-    pid_t pid;
-
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-        for (int i = 0; i < device_count; i++) {
-            if (devices[i].id == CONTROLLER_ID) {
-                continue;
-            }
-            if (devices[i].pid == pid) {
-                if (devices[i].parent_id != -1 && devices[i].parent_id != CONTROLLER_ID) {
-                    int parent_idx = find_device_by_id(devices[i].parent_id);
-                    if (parent_idx != -1) {
-                        int fd_parent = ipc_open_for_writing(devices[parent_idx].id, devices[parent_idx].type);
-                        if (fd_parent != -1) {
-                            char message[64];
-                            snprintf(message, sizeof(message), "CHILD_DIED %d", devices[i].id);
-                            ipc_send_message(fd_parent, message);
-                            close(fd_parent);
-                        }
-                    }
-                }
-                if (devices[i].fifo_fd != -1) {
-                    close(devices[i].fifo_fd);
-                    devices[i].fifo_fd = -1;
-                }
-                ipc_remove_fifo(devices[i].id, devices[i].type);
-
-                for (int j = i; j < device_count - 1; j++) {
-                    devices[j] = devices[j + 1];
-                }
-                device_count--;
-                break;
-            }
-        }
+    running = 0;
+    // Sblocca il thread in ascolto mandando un byte fittizio
+    int fd = open(FIFO_CONTROLLER, O_WRONLY | O_NONBLOCK);
+    if (fd != -1) { 
+        write(fd, " ", 1); 
+        close(fd); 
     }
 }
 
@@ -169,6 +144,9 @@ static int read_line(char *buffer, size_t size) {
    while (1) {
         if (fgets(buffer, size, stdin) == NULL) {
             if (errno == EINTR) {
+                if(!running){
+                    return 0;
+                }
                 clearerr(stdin);
                 errno = 0;
                 continue;
@@ -238,7 +216,7 @@ static void add_device(char* device) {
     }
     
     if(pid == 0) {
-        signal(SIGINT,SIG_DFL);
+        signal(SIGINT,SIG_IGN);
         close(STDIN_FILENO); // Chiude l'input tastiera per il figlio
         switch (type) {
             case DEVICE_BULB:
@@ -931,19 +909,8 @@ void controller_run(void) {
         }
         else if(strcmp(tokens[0], "quit") == 0) {
             printf("Exit...\n\n");
-
             running = 0;//termina il ciclo nel thread e anche qui
-
-            //per far uscire il thread dalla read bloccante gli si manda un byte fittizio
-            int fd = open(FIFO_CONTROLLER, O_WRONLY | O_NONBLOCK);
-            if (fd != -1) { 
-                write(fd, " ", 1); 
-                close(fd); 
-            }
-
-            pthread_join(listener_td, NULL);
-            cleanup_all_devices();
-            return;
+            break;
         }
         else {
             printf("Invalid command.\n");
@@ -952,5 +919,20 @@ void controller_run(void) {
         //ripristino maschera
         sigprocmask(SIG_SETMASK, &oldmask, NULL);
         
-    }   
+    } 
+    
+    printf("\nShutting down Domotics System gracefully...\n");
+
+    // Per sbloccare il listener_thread dalla read
+    int fd = open(FIFO_CONTROLLER, O_WRONLY | O_NONBLOCK);
+    if (fd != -1) { 
+        write(fd, " ", 1); 
+        close(fd); 
+    }
+
+    // Aspettiamo che il thread finisca pulito
+    pthread_join(listener_td, NULL);
+    
+    // Killa tutti i processi figli e cancella i file .fifo
+    cleanup_all_devices();
 }
