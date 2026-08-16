@@ -9,6 +9,7 @@
 #include "device.h"
 #include "protocol.h"
 
+#define _DEFAULT_SOURCE
 #define BUFFER_SIZE 256
 
 static const char *get_device_type_name(DeviceType type) {
@@ -118,7 +119,7 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
                 ptr += strlen(CMD_MIRROR_RESP);
             }
         } else {
-            usleep(50000);
+            sleep(50000);
             timeout--;
         }
     }
@@ -252,7 +253,7 @@ void hub_run(HubDevice *hub){
 
                     int fd_child = ipc_open_for_writing(child_id,child_type);
                     if(fd_child != -1){
-                        char cmd[64];
+                        char cmd[MAX_MSG_LEN];
                         snprintf(cmd, sizeof(cmd), "%s %d %d", CMD_DELETE, hub->id, DEVICE_HUB);
                         ipc_send_message(fd_child, cmd);
                         close(fd_child);
@@ -267,7 +268,7 @@ void hub_run(HubDevice *hub){
                     if (n > 0 && strncmp(deleted_buf, "MSG", 3) == 0) {
                         deleted++;
                     } else {
-                        usleep(10000); //10ms
+                        sleep(10000); //10ms
                         timeout--;
                     }
                 }
@@ -320,7 +321,7 @@ void hub_run(HubDevice *hub){
 
                     int fd_child = ipc_open_for_writing(child_id, child_type);
                     if (fd_child != -1) {
-                        char cmd[64];
+                        char cmd[MAX_MSG_LEN];
                         snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, out_label, out_pos, hub->id, DEVICE_HUB);
                         ipc_send_message(fd_child, cmd);
                         close(fd_child);
@@ -336,7 +337,7 @@ void hub_run(HubDevice *hub){
                     if (n > 0 && strncmp(msg_buf, "MSG", 3) == 0) {
                         msg++;
                     } else {
-                        usleep(10000);
+                        sleep(10000);
                         timeout--;
                     }
                 }
@@ -431,7 +432,7 @@ void hub_run(HubDevice *hub){
             
 
         } else {
-            usleep(50000); // 50ms
+            sleep(50000); // 50ms
         }
     }
 

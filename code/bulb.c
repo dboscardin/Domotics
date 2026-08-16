@@ -9,6 +9,8 @@
 #include "protocol.h"
 #include "device.h"
 
+//per usleep
+#define _DEFAULT_SOURCE
 #define BUFFER_SIZE 256
 
 Bulb create_bulb_struct(int id) {
@@ -172,7 +174,7 @@ void bulb_run(Bulb *bulb) {
             }
 
         } else {
-            usleep(50000); // il processo consuma meno risorse
+            sleep(50000); // il processo consuma meno risorse
         }
     }
     close(fd);

@@ -20,6 +20,7 @@
 #include "protocol.h"
 #include "timer.h"
 
+#define _DEFAULT_SOURCE
 #define MAX_CMD_LEN 50
 #define MAX_DEVICES 50
 #define MAX_TOKENS 10
@@ -268,7 +269,7 @@ static void add_device(char* device) {
     devices[device_count].parent_id = CONTROLLER_ID;
     devices[device_count].fifo_fd = -1;
 
-    usleep(50000); //50ms
+    sleep(50000); //50ms
 
     printf("%s", device_type_to_string(type));    
     printf(" created successfully!\nid=%d, pid=%d\n", curr_id, pid);

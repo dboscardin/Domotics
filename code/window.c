@@ -8,6 +8,7 @@
 #include "device.h"
 #include "protocol.h"
 
+#define _DEFAULT_SOURCE
 #define BUFFER_SIZE 256
 
 Window create_window_struct(int id) {
@@ -188,7 +189,7 @@ void window_run(Window *window) {
                 ipc_send_controller(ERR_INVALID_COMMAND, " Window unknown command.");
             }
         } else {
-        usleep(50000); // il processo consuma meno risorse
+        sleep(50000); // il processo consuma meno risorse
         }
     }
     close(fd);
