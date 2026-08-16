@@ -289,6 +289,8 @@ void fridge_run(Fridge *fridge) {
                 fridge->is_open = false;
                 ipc_send_controller(STATUS_OK, "Fridge auto-closed after delay.");
             }
+        } else {
+            usleep(50000);
         }
     }
     close(fd);

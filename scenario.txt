@@ -1,0 +1,10 @@
+add hub
+add timer
+add bulb
+add window
+add fridge
+link 3 to 1
+link 4 to 1
+link 5 to 2
+switch 3 power on
+info 1
