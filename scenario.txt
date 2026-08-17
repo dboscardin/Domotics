@@ -3,8 +3,13 @@ add timer
 add bulb
 add window
 add fridge
+add bulb
 link 3 to 1
 link 4 to 1
-link 5 to 2
-switch 3 power on
+link 6 to 2
+switch 2 begin 18:00
+switch 2 end 06:00
+switch 1 power on
 info 1
+info 2
+list

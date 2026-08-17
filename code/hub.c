@@ -163,11 +163,9 @@ void hub_run(HubDevice *hub){
 
         if (bytes_letti > 0) {
 
-            //delay
-            ipc_simulate_delay();
-
             //link
             if (strncmp(buffer, CMD_LINK_CHILD, strlen(CMD_LINK_CHILD)) == 0) {
+                ipc_simulate_delay();
                 int child_id;
                 int child_type;
 
@@ -202,6 +200,7 @@ void hub_run(HubDevice *hub){
             }
             //unlink
             else if(strncmp(buffer, CMD_UNLINK_CHILD, strlen(CMD_UNLINK_CHILD)) == 0){
+                ipc_simulate_delay();
                 int child_id;
 
                 if (sscanf(buffer, "%*s %d", &child_id) == 1){
@@ -296,6 +295,7 @@ void hub_run(HubDevice *hub){
             }
             //switch
             else if (strncmp(buffer, "SWITCH", 6) == 0) {
+                ipc_simulate_delay();
 
                 char label[32], pos[32];
                 int sender_id = -1, sender_type = -1;

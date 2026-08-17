@@ -175,10 +175,9 @@ void timer_run(TimerDevice *timer){
 
         if(bytes_letti > 0){
 
-            ipc_simulate_delay();
-
             //link
             if(strncmp(buffer, CMD_LINK_CHILD, strlen(CMD_LINK_CHILD)) == 0){
+                ipc_simulate_delay();
                 int child_id;
                 int child_type;
                 
@@ -205,7 +204,7 @@ void timer_run(TimerDevice *timer){
             }
             //unlink
             else if(strncmp(buffer, CMD_UNLINK_CHILD, strlen(CMD_UNLINK_CHILD)) == 0){
-                
+                ipc_simulate_delay();
                 int child_id;
                 if (sscanf(buffer, "%*s %d", &child_id) == 1){
                     if (timer->num_children > 0 && timer->children[0].id == child_id) {
@@ -234,6 +233,7 @@ void timer_run(TimerDevice *timer){
             }
             //switch
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0){
+                ipc_simulate_delay();
                 char label[32], pos[32];
                 int sender_id = -1, sender_type = -1;
                 int parsed = sscanf(buffer, "%*s %s %s %d %d", label, pos, &sender_id, &sender_type);
@@ -309,6 +309,8 @@ void timer_run(TimerDevice *timer){
                         if (fd_child != -1) {
                             char cmd[64];
                             snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, out_label, out_pos, timer->id, DEVICE_TIMER);
+                            ipc_send_message(fd_child, cmd);
+                            close(fd_child);
                         }
                         
                         int msg = 0;

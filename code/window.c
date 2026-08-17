@@ -32,9 +32,6 @@ void window_run(Window *window) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
 
-            //delay
-            ipc_simulate_delay();
-
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
                 int sender = -1;
@@ -59,6 +56,8 @@ void window_run(Window *window) {
             }
             //switch
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
+                //delay
+                ipc_simulate_delay();
                 bool handled = false;
                 bool valid_pos = true;
                 char label[32], pos[32];
@@ -68,17 +67,13 @@ void window_run(Window *window) {
 
                 if(strcmp(label, "open") == 0) {
                     if (strcmp(pos, "on") == 0) {
-                        window->is_open = true;
-                        clock_gettime(CLOCK_MONOTONIC, &window->active_since);
-                        window->tracking = true;
-                    } else if(strcmp(pos, "off") == 0) {
-                        /*if (window->tracking) {
-                            long elapsed = compute_elapsed_seconds(&window->active_since);
-                            window->time += elapsed;
-                            window->tracking = false;
+                        if (!window->tracking) {
+                            clock_gettime(CLOCK_MONOTONIC, &window->active_since);
+                            window->tracking = true;
                         }
-                        window->is_open = false;*/
-                        valid_pos = false;
+                        window->is_open = true;
+                    } else if(strcmp(pos, "off") == 0) {
+                        // Switch a molla: ritorna automaticamente a off
                     } else {
                         valid_pos = false;
                     }
@@ -93,9 +88,8 @@ void window_run(Window *window) {
                         }
                         window->is_open = false;
                     } else if (strcmp(pos, "off") == 0) {
-                        /*window->is_open = true;
-                        clock_gettime(CLOCK_MONOTONIC, &window->active_since);
-                        window->tracking = true;*/
+                        // Switch a molla: ritorna automaticamente a off
+                    } else {
                         valid_pos = false;
                     }
                     handled = true;
