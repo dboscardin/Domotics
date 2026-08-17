@@ -320,7 +320,7 @@ void hub_run(HubDevice *hub){
 
                     int fd_child = ipc_open_for_writing(child_id, child_type);
                     if (fd_child != -1) {
-                        char cmd[64];
+                        char cmd[128];
                         snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, out_label, out_pos, hub->id, DEVICE_HUB);
                         ipc_send_message(fd_child, cmd);
                         close(fd_child);
