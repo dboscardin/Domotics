@@ -330,7 +330,7 @@ static void link_devices(int child_id, int hub_id) {
         return;
     }
 
-    if (devices[child_idx].parent_id != -1) {
+    if (devices[child_idx].parent_id != -1 && devices[child_idx].parent_id != CONTROLLER_ID) {
         printf("Notice: Device %d is already linked to %d. Unlinking...\n", child_id, devices[child_idx].parent_id);
         unlink_device(child_id, devices[child_idx].parent_id);
         link_devices(child_id,hub_id);
