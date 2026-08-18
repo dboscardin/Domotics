@@ -69,7 +69,7 @@ if [ "$COMMAND" = "SWITCH" ]; then
     LABEL_LOWER=$(echo "$LABEL" | tr '[:upper:]' '[:lower:]')
     POS_LOWER=$(echo "$POS" | tr '[:upper:]' '[:lower:]')
     case "$LABEL_LOWER" in
-        power|open|close)
+        power|open|close|main)
             #acceta solo on/off
             if [ "$POS_LOWER" != "on" ] && [ "$POS_LOWER" != "off" ]; then
                 echo "Error: value for '$LABEL_LOWER' must be 'on' or 'off'."
@@ -79,7 +79,7 @@ if [ "$COMMAND" = "SWITCH" ]; then
             POS=$POS_LOWER #per sicurezza
             ;;
         
-        delay|perc|thermostat)
+        delay|perc|thermostat|temp)
             #controllo se pos è un numero
             if ! [[ "$POS" =~ ^-?[0-9]+$ ]]; then
                 echo "Error: value for '$LABEL_LOWER' must be an integer number."

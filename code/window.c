@@ -38,12 +38,12 @@ void window_run(Window *window) {
                 int sender_type = -1;
                 
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
-                    int fd_parend = ipc_open_for_writing(sender,(DeviceType)sender_type);
-                    if(fd_parend != -1){
+                    int fd_parent = ipc_open_for_writing(sender,(DeviceType)sender_type);
+                    if(fd_parent != -1){
                         char message[32];
                         snprintf(message, sizeof(message), "MSG %d", window->id);
-                        ipc_send_message(fd_parend, message);
-                        close(fd_parend);
+                        ipc_send_message(fd_parent, message);
+                        close(fd_parent);
                     }
                 } else {
                     char message[MAX_MSG_LEN];
