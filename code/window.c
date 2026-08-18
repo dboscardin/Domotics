@@ -8,8 +8,6 @@
 #include "device.h"
 #include "protocol.h"
 
-#define BUFFER_SIZE 256
-
 Window create_window_struct(int id) {
     Window window = {
         .id = id,
@@ -26,7 +24,7 @@ void window_run(Window *window) {
     srand(time(NULL) ^ getpid());
 
     int fd = ipc_open_for_listening(window->id, DEVICE_WINDOW);
-    char buffer[BUFFER_SIZE];
+    char buffer[MAX_MSG_LEN];
     while(1) {
 
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));

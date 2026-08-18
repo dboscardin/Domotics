@@ -8,8 +8,6 @@
 #include "device.h"
 #include "protocol.h"
 
-#define BUFFER_SIZE 256
-
 Fridge create_fridge_struct(int id) {
     Fridge fridge = {
         .id = id,
@@ -30,7 +28,7 @@ void fridge_run(Fridge *fridge) {
     srand(time(NULL) ^ getpid());
 
     int fd = ipc_open_for_listening(fridge->id, DEVICE_FRIDGE);
-    char buffer[BUFFER_SIZE];
+    char buffer[MAX_MSG_LEN];
     
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
@@ -201,7 +199,8 @@ void fridge_run(Fridge *fridge) {
                         //comando dal controller
                         char message[MAX_MSG_LEN];
                         if (valid_pos) {
-                           snprintf(message, sizeof(message), "Fridge %d, %s set to: %s\n", fridge->id, label, pos);                            ipc_send_controller(STATUS_OK, message);
+                            snprintf(message, sizeof(message), "Fridge %d, %s set to: %s", fridge->id, label, pos);
+                            ipc_send_controller(STATUS_OK, message);
                         } else {
                             snprintf(message, sizeof(message), "Invalid position for %s.", label);
                             ipc_send_controller(ERR_INVALID_PARAM, message);

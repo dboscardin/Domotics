@@ -10,8 +10,6 @@
 #include "device.h"
 #include "protocol.h"
 
-#define BUFFER_SIZE 256
-
 static const char *get_device_type_name(DeviceType type) {
     switch (type) {
         case DEVICE_BULB:       return "Bulb";
@@ -84,7 +82,7 @@ void timer_run(TimerDevice *timer){
     srand(time(NULL) ^ getpid());
 
     int fd_ascolto = ipc_open_for_listening(timer->id,DEVICE_TIMER);
-    char buffer[BUFFER_SIZE];
+    char buffer[MAX_MSG_LEN];
 
     char last_triggered[6] = ""; //serve per non mandare il comando di switch un sacco di volte e far ricordare al timer che l'ha già mandato
 
