@@ -16,7 +16,7 @@ void handle_set_parent(int *parent_id, const char *buffer) {
 void format_parent_string(int parent_id, char *parent_str, size_t size) {
     if (parent_id == -1) {
         snprintf(parent_str, size, "None");
-    } else if (parent_id == 0) {
+    } else if (parent_id == CONTROLLER_ID) {
         snprintf(parent_str, size, "Controller");
     } else {
         snprintf(parent_str, size, "Hub/Timer ID %d", parent_id);

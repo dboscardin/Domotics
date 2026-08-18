@@ -8,8 +8,6 @@
 #include "device.h"
 #include "protocol.h"
 
-#define BUFFER_SIZE 256
-
 Window create_window_struct(int id) {
     Window window = {
         .id = id,
@@ -26,14 +24,11 @@ void window_run(Window *window) {
     srand(time(NULL) ^ getpid());
 
     int fd = ipc_open_for_listening(window->id, DEVICE_WINDOW);
-    char buffer[BUFFER_SIZE];
+    char buffer[MAX_MSG_LEN];
     while(1) {
 
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
-
-            //delay
-            ipc_simulate_delay();
 
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
@@ -41,12 +36,12 @@ void window_run(Window *window) {
                 int sender_type = -1;
                 
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
-                    int fd_parend = ipc_open_for_writing(sender,(DeviceType)sender_type);
-                    if(fd_parend != -1){
+                    int fd_parent = ipc_open_for_writing(sender,(DeviceType)sender_type);
+                    if(fd_parent != -1){
                         char message[32];
                         snprintf(message, sizeof(message), "MSG %d", window->id);
-                        ipc_send_message(fd_parend, message);
-                        close(fd_parend);
+                        ipc_send_message(fd_parent, message);
+                        close(fd_parent);
                     }
                 } else {
                     char message[MAX_MSG_LEN];
@@ -59,6 +54,8 @@ void window_run(Window *window) {
             }
             //switch
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
+                //delay
+                ipc_simulate_delay();
                 bool handled = false;
                 bool valid_pos = true;
                 char label[32], pos[32];
@@ -68,17 +65,13 @@ void window_run(Window *window) {
 
                 if(strcmp(label, "open") == 0) {
                     if (strcmp(pos, "on") == 0) {
-                        window->is_open = true;
-                        clock_gettime(CLOCK_MONOTONIC, &window->active_since);
-                        window->tracking = true;
-                    } else if(strcmp(pos, "off") == 0) {
-                        /*if (window->tracking) {
-                            long elapsed = compute_elapsed_seconds(&window->active_since);
-                            window->time += elapsed;
-                            window->tracking = false;
+                        if (!window->tracking) {
+                            clock_gettime(CLOCK_MONOTONIC, &window->active_since);
+                            window->tracking = true;
                         }
-                        window->is_open = false;*/
-                        valid_pos = false;
+                        window->is_open = true;
+                    } else if(strcmp(pos, "off") == 0) {
+                        // Switch a molla: ritorna automaticamente a off
                     } else {
                         valid_pos = false;
                     }
@@ -93,9 +86,8 @@ void window_run(Window *window) {
                         }
                         window->is_open = false;
                     } else if (strcmp(pos, "off") == 0) {
-                        /*window->is_open = true;
-                        clock_gettime(CLOCK_MONOTONIC, &window->active_since);
-                        window->tracking = true;*/
+                        // Switch a molla: ritorna automaticamente a off
+                    } else {
                         valid_pos = false;
                     }
                     handled = true;

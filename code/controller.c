@@ -29,6 +29,7 @@ static volatile int running = 1;
 static pthread_mutex_t mutex;
 static pthread_cond_t sync_cond;
 static volatile bool response_received = false;
+static volatile int last_status_code = STATUS_OK;
 
 static bool controller_state = true;
 
@@ -79,6 +80,9 @@ static int count_direct_children(int parent_id) {
 
 // Funzione per terminare tutti i processi figli
 static void cleanup_all_devices(void) {
+
+    signal(SIGCHLD, SIG_DFL);
+    
     for (int i = 0; i < device_count; i++) {
         if (devices[i].id == CONTROLLER_ID) {
             continue;
@@ -99,40 +103,12 @@ static void cleanup_all_devices(void) {
 // Gestione della chiusura tramite Ctrl+C
 static void handle_sigint(int sig) {
     (void)sig;
-    int status;
-    pid_t pid;
-
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-        for (int i = 0; i < device_count; i++) {
-            if (devices[i].id == CONTROLLER_ID) {
-                continue;
-            }
-            if (devices[i].pid == pid) {
-                if (devices[i].parent_id != -1 && devices[i].parent_id != CONTROLLER_ID) {
-                    int parent_idx = find_device_by_id(devices[i].parent_id);
-                    if (parent_idx != -1) {
-                        int fd_parent = ipc_open_for_writing(devices[parent_idx].id, devices[parent_idx].type);
-                        if (fd_parent != -1) {
-                            char message[64];
-                            snprintf(message, sizeof(message), "CHILD_DIED %d", devices[i].id);
-                            ipc_send_message(fd_parent, message);
-                            close(fd_parent);
-                        }
-                    }
-                }
-                if (devices[i].fifo_fd != -1) {
-                    close(devices[i].fifo_fd);
-                    devices[i].fifo_fd = -1;
-                }
-                ipc_remove_fifo(devices[i].id, devices[i].type);
-
-                for (int j = i; j < device_count - 1; j++) {
-                    devices[j] = devices[j + 1];
-                }
-                device_count--;
-                break;
-            }
-        }
+    running = 0;
+    // Sblocca il thread in ascolto mandando un byte fittizio
+    int fd = open(FIFO_CONTROLLER, O_WRONLY | O_NONBLOCK);
+    if (fd != -1) { 
+        write(fd, " ", 1); 
+        close(fd); 
     }
 }
 
@@ -148,13 +124,36 @@ static void handle_sigchld(int sig) {
                 continue; 
             }
             if (devices[i].pid == pid) {
+                int dead_id = devices[i].id;
+                int parent_id = devices[i].parent_id;
+
                 if (devices[i].fifo_fd != -1) {
                     close(devices[i].fifo_fd);
                     devices[i].fifo_fd = -1;
                 }
                 ipc_remove_fifo(devices[i].id, devices[i].type);
                 
-                // Shift dell'array per rimuovere il device eliminato dallo script
+                // Se era collegato a un genitore Hub o Timer, notifica la morte
+                if (parent_id != -1 && parent_id != CONTROLLER_ID) {
+                    int p_idx = -1;
+                    for (int k = 0; k < device_count; k++) {
+                        if (devices[k].id == parent_id) {
+                            p_idx = k;
+                            break;
+                        }
+                    }
+                    if (p_idx != -1) {
+                        int fd_parent = ipc_open_for_writing(parent_id, devices[p_idx].type);
+                        if (fd_parent != -1) {
+                            char dead_msg[64];
+                            snprintf(dead_msg, sizeof(dead_msg), "%s %d", CMD_CHILD_DIED, dead_id);
+                            ipc_send_message(fd_parent, dead_msg);
+                            close(fd_parent);
+                        }
+                    }
+                }
+
+                // Shift dell'array per rimuovere il device eliminato
                 for (int j = i; j < device_count - 1; j++) {
                     devices[j] = devices[j + 1];
                 }
@@ -169,6 +168,9 @@ static int read_line(char *buffer, size_t size) {
    while (1) {
         if (fgets(buffer, size, stdin) == NULL) {
             if (errno == EINTR) {
+                if(!running){
+                    return 0;
+                }
                 clearerr(stdin);
                 errno = 0;
                 continue;
@@ -238,7 +240,7 @@ static void add_device(char* device) {
     }
     
     if(pid == 0) {
-        signal(SIGINT,SIG_DFL);
+        signal(SIGINT,SIG_IGN);
         close(STDIN_FILENO); // Chiude l'input tastiera per il figlio
         switch (type) {
             case DEVICE_BULB:
@@ -342,8 +344,8 @@ static void link_devices(int child_id, int hub_id) {
         return;
     }
 
-    if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER) {
-        printf("Error: device ID %d is not a Hub or Timer.\n\n", hub_id);
+    if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER && devices[hub_idx].type != DEVICE_CONTROLLER) {
+        printf("Error: device ID %d is not a Control Device (Controller, Hub, or Timer).\n\n", hub_id);
         return;
     }
 
@@ -352,52 +354,57 @@ static void link_devices(int child_id, int hub_id) {
         return;
     }
 
-    if (devices[child_idx].parent_id != -1) {
+    if (devices[child_idx].parent_id != -1 && devices[child_idx].parent_id != CONTROLLER_ID) {
         printf("Notice: Device %d is already linked to %d. Unlinking...\n", child_id, devices[child_idx].parent_id);
         unlink_device(child_id, devices[child_idx].parent_id);
-        link_devices(child_id,hub_id);
+    }
+
+    // Se il target è il Controller (ID 0)
+    if (hub_id == CONTROLLER_ID) {
+        int fd_child = ipc_open_for_writing(child_id, devices[child_idx].type);
+        if (fd_child != -1) {
+            char msg_child[64];
+            snprintf(msg_child, sizeof(msg_child), "%s %d", CMD_SET_PARENT, CONTROLLER_ID);
+            ipc_send_message(fd_child, msg_child);
+            close(fd_child);
+        }
+        devices[child_idx].parent_id = CONTROLLER_ID;
+        printf("Link completed: Device %d is now directly linked to Controller.\n\n", child_id);
         return;
     }
 
-    //invia messaggio al figlio
-    int fd_child = ipc_open_for_writing(child_id, devices[child_idx].type);
-    if (fd_child != -1) {
-        char msg_child[64];
-        snprintf(msg_child, sizeof(msg_child), "%s %d",CMD_SET_PARENT, hub_id);
+    // Altrimenti invia richiesta di link al padre (Hub o Timer)
+    int fd_parent = ipc_open_for_writing(hub_id, devices[hub_idx].type);
+    if (fd_parent != -1) {
+        char msg_parent[64];
+        snprintf(msg_parent, sizeof(msg_parent), "%s %d %d", CMD_LINK_CHILD, child_id, devices[child_idx].type);
 
-        ipc_send_message(fd_child, msg_child);
-        close(fd_child);
+        pthread_mutex_lock(&mutex);
+        response_received = false;
 
-    } else {
-        printf("Error: failed to connect to child %d FIFO.\n\n", child_id);
-    }
+        ipc_send_message(fd_parent, msg_parent);
+        close(fd_parent);
 
-    //invia messaggio al padre
-    if (hub_id != CONTROLLER_ID) {
-        int fd_parent = ipc_open_for_writing(hub_id, devices[hub_idx].type);
-        if (fd_parent != -1) {
-            char msg_parent[64];
-            snprintf(msg_parent, sizeof(msg_parent), "%s %d %d", CMD_LINK_CHILD,child_id, devices[child_idx].type);
-
-            pthread_mutex_lock(&mutex);
-            response_received = false;
-
-            ipc_send_message(fd_parent, msg_parent);
-            close(fd_parent);
-
-            while(!response_received){
-                pthread_cond_wait(&sync_cond,&mutex);
-            }
-
-            pthread_mutex_unlock(&mutex);
-
-            devices[child_idx].parent_id = hub_id;
-
-        } else {
-            printf("Error: failed to connect to parent %d FIFO.\n\n", hub_id);
+        while(!response_received){
+            pthread_cond_wait(&sync_cond, &mutex);
         }
-    }
 
+        bool success = (last_status_code == STATUS_OK);
+        pthread_mutex_unlock(&mutex);
+
+        if (success) {
+            int fd_child = ipc_open_for_writing(child_id, devices[child_idx].type);
+            if (fd_child != -1) {
+                char msg_child[64];
+                snprintf(msg_child, sizeof(msg_child), "%s %d", CMD_SET_PARENT, hub_id);
+                ipc_send_message(fd_child, msg_child);
+                close(fd_child);
+            }
+            devices[child_idx].parent_id = hub_id;
+        }
+    } else {
+        printf("Error: failed to connect to parent %d FIFO.\n\n", hub_id);
+    }
 }
 
 static void unlink_device(int child_id,int hub_id){
@@ -406,6 +413,12 @@ static void unlink_device(int child_id,int hub_id){
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
+        return;
+    }
+
+    if (hub_id == CONTROLLER_ID) {
+        devices[child_idx].parent_id = -1;
+        printf("Device %d unlinked from Controller.\n\n", child_id);
         return;
     }
 
@@ -547,10 +560,14 @@ static bool switch_check(char *tokens[], int count) {
         const char *label;
         bool is_bool;
     } registers[] = {
+        {"main",        true},
         {"power",       true},
         {"open",        true},
         {"close",       true},
         {"delay",       false},
+        {"perc",        false},
+        {"thermostat",  false},
+        {"temp",        false},
         {"begin",       false},
         {"end",         false}
     };
@@ -748,6 +765,16 @@ static void *listener_thread(void *arg){
                 continue;
             }
             
+            int code = 0;
+            if (sscanf(controller_buf, "%d", &code) == 1) {
+                last_status_code = code;
+            }
+
+            if (strncmp(controller_buf, "MSG", 3) == 0) {
+                // Messaggio interno di ack, non stampare a schermo
+                continue;
+            }
+
             //messagi dai dispositivi figli
             char *message = strchr(controller_buf, ' ');
             if(message != NULL){
@@ -931,19 +958,8 @@ void controller_run(void) {
         }
         else if(strcmp(tokens[0], "quit") == 0) {
             printf("Exit...\n\n");
-
             running = 0;//termina il ciclo nel thread e anche qui
-
-            //per far uscire il thread dalla read bloccante gli si manda un byte fittizio
-            int fd = open(FIFO_CONTROLLER, O_WRONLY | O_NONBLOCK);
-            if (fd != -1) { 
-                write(fd, " ", 1); 
-                close(fd); 
-            }
-
-            pthread_join(listener_td, NULL);
-            cleanup_all_devices();
-            return;
+            break;
         }
         else {
             printf("Invalid command.\n");
@@ -952,5 +968,20 @@ void controller_run(void) {
         //ripristino maschera
         sigprocmask(SIG_SETMASK, &oldmask, NULL);
         
-    }   
+    } 
+    
+    printf("\nShutting down Domotics System gracefully...\n");
+
+    // Per sbloccare il listener_thread dalla read
+    int fd = open(FIFO_CONTROLLER, O_WRONLY | O_NONBLOCK);
+    if (fd != -1) { 
+        write(fd, " ", 1); 
+        close(fd); 
+    }
+
+    // Aspettiamo che il thread finisca pulito
+    pthread_join(listener_td, NULL);
+    
+    // Killa tutti i processi figli e cancella i file .fifo
+    cleanup_all_devices();
 }

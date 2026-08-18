@@ -3,8 +3,16 @@ add timer
 add bulb
 add window
 add fridge
+add bulb
 link 3 to 1
 link 4 to 1
-link 5 to 2
-switch 3 power on
+link 6 to 2
+switch 2 begin 22:00
+switch 2 end 23:00
+switch 1 power on
+switch 5 open on
+switch 5 delay 30
 info 1
+info 2
+info 5
+list

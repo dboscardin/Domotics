@@ -9,8 +9,6 @@
 #include "protocol.h"
 #include "device.h"
 
-#define BUFFER_SIZE 256
-
 Bulb create_bulb_struct(int id) {
     Bulb bulb = {
         .id = id,
@@ -28,14 +26,12 @@ void bulb_run(Bulb *bulb) {
     srand(time(NULL) ^ getpid());
 
     int fd = ipc_open_for_listening(bulb->id, DEVICE_BULB);
-    char buffer[BUFFER_SIZE];
+    char buffer[MAX_MSG_LEN];
 
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
 
-            //delay
-            ipc_simulate_delay();
 
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
@@ -61,6 +57,10 @@ void bulb_run(Bulb *bulb) {
             }
             //switch
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
+
+                //delay
+                ipc_simulate_delay();
+                
                 char label[32], pos[32];
                 int sender_id = -1; 
                 int sender_type = -1;

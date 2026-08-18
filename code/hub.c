@@ -9,8 +9,6 @@
 #include "device.h"
 #include "protocol.h"
 
-#define BUFFER_SIZE 256
-
 static const char *get_device_type_name(DeviceType type) {
     switch (type) {
         case DEVICE_BULB:       return "Bulb";
@@ -156,18 +154,16 @@ void hub_run(HubDevice *hub){
     int fd_ascolto = ipc_open_for_listening(hub->id, DEVICE_HUB);
 
     // Ricezione messaggi
-    char buffer[BUFFER_SIZE];
+    char buffer[MAX_MSG_LEN];
     while (1) {
         // Lettura FIFO
         int bytes_letti = ipc_read_line(fd_ascolto, buffer, sizeof(buffer));
 
         if (bytes_letti > 0) {
 
-            //delay
-            ipc_simulate_delay();
-
             //link
             if (strncmp(buffer, CMD_LINK_CHILD, strlen(CMD_LINK_CHILD)) == 0) {
+                ipc_simulate_delay();
                 int child_id;
                 int child_type;
 
@@ -202,6 +198,7 @@ void hub_run(HubDevice *hub){
             }
             //unlink
             else if(strncmp(buffer, CMD_UNLINK_CHILD, strlen(CMD_UNLINK_CHILD)) == 0){
+                ipc_simulate_delay();
                 int child_id;
 
                 if (sscanf(buffer, "%*s %d", &child_id) == 1){
@@ -295,7 +292,8 @@ void hub_run(HubDevice *hub){
                 exit(0);
             }
             //switch
-            else if (strncmp(buffer, "SWITCH", 6) == 0) {
+            else if (strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
+                ipc_simulate_delay();
 
                 char label[32], pos[32];
                 int sender_id = -1, sender_type = -1;
@@ -320,7 +318,7 @@ void hub_run(HubDevice *hub){
 
                     int fd_child = ipc_open_for_writing(child_id, child_type);
                     if (fd_child != -1) {
-                        char cmd[64];
+                        char cmd[128];
                         snprintf(cmd, sizeof(cmd), "%s %s %s %d %d", CMD_SWITCH, out_label, out_pos, hub->id, DEVICE_HUB);
                         ipc_send_message(fd_child, cmd);
                         close(fd_child);

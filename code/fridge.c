@@ -8,8 +8,6 @@
 #include "device.h"
 #include "protocol.h"
 
-#define BUFFER_SIZE 256
-
 Fridge create_fridge_struct(int id) {
     Fridge fridge = {
         .id = id,
@@ -30,15 +28,12 @@ void fridge_run(Fridge *fridge) {
     srand(time(NULL) ^ getpid());
 
     int fd = ipc_open_for_listening(fridge->id, DEVICE_FRIDGE);
-    char buffer[BUFFER_SIZE];
+    char buffer[MAX_MSG_LEN];
     
     while(1) {
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
 
-            //delay
-            ipc_simulate_delay();
-        
             //delete
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
                 int sender = -1;    
@@ -63,6 +58,8 @@ void fridge_run(Fridge *fridge) {
             }
             //Switch
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
+                //delay
+                ipc_simulate_delay();
                 bool handled = false;
                 bool valid_pos = true;
                 bool already_responded = false;
@@ -73,9 +70,11 @@ void fridge_run(Fridge *fridge) {
 
                 if(strcmp(label, "open") == 0) {
                     if (strcmp(pos, "on") == 0) {
+                        if (!fridge->tracking) {
+                            clock_gettime(CLOCK_MONOTONIC, &fridge->active_since);
+                            fridge->tracking = true;
+                        }
                         fridge->is_open = true;
-                        clock_gettime(CLOCK_MONOTONIC, &fridge->active_since);
-                        fridge->tracking = true;
                     } else if (strcmp(pos, "off") == 0) {
                         if (fridge->tracking) {
                             long elapsed = compute_elapsed_seconds(&fridge->active_since);
@@ -97,23 +96,16 @@ void fridge_run(Fridge *fridge) {
                         }
                         fridge->is_open = false;
                     } else if (strcmp(pos, "off") == 0) {
+                        if (!fridge->tracking) {
+                            clock_gettime(CLOCK_MONOTONIC, &fridge->active_since);
+                            fridge->tracking = true;
+                        }
                         fridge->is_open = true;
-                        clock_gettime(CLOCK_MONOTONIC, &fridge->active_since);
-                        fridge->tracking = true;
                     } else {
                         valid_pos = false;
                     }
                     handled = true;
                 }
-                /*else if(strcmp(label, "time") == 0) {
-                    int int_pos = atoi(pos);
-                    if (int_pos >= 0) {
-                        fridge->time = int_pos;
-                    } else {
-                        valid_pos = false;
-                    }
-                    handled = true;
-                }*/
                 //aggiungere chiusura automatica
                 else if(strcmp(label, "delay") == 0) {
                     int int_pos = atoi(pos);
@@ -207,7 +199,8 @@ void fridge_run(Fridge *fridge) {
                         //comando dal controller
                         char message[MAX_MSG_LEN];
                         if (valid_pos) {
-                           snprintf(message, sizeof(message), "Fridge %d, %s set to: %s\n", fridge->id, label, pos);                            ipc_send_controller(STATUS_OK, message);
+                            snprintf(message, sizeof(message), "Fridge %d, %s set to: %s", fridge->id, label, pos);
+                            ipc_send_controller(STATUS_OK, message);
                         } else {
                             snprintf(message, sizeof(message), "Invalid position for %s.", label);
                             ipc_send_controller(ERR_INVALID_PARAM, message);
