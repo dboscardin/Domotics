@@ -412,7 +412,7 @@ void hub_run(HubDevice *hub){
                     int fd_parent = ipc_open_for_writing(p_sender_id, p_sender_type);
                     if (fd_parent != -1) {
                         char resp[MAX_MSG_LEN];
-                        snprintf(resp, sizeof(resp), "%s %d %s", CMD_MIRROR_RESP, hub->id, overall_state);
+                        snprintf(resp, sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, hub->id, overall_state);
                         ipc_send_message(fd_parent, resp);
                         close(fd_parent);
                     }

@@ -487,6 +487,9 @@ static void remove_device(int id) {
     // Se il dispositivo era collegato a un genitore
     if (devices[index].parent_id != -1) {
         unlink_device(id, devices[index].parent_id);
+
+        //per evitare race condition
+        usleep(100000);
     }
 
     DeviceType type = devices[index].type;
