@@ -40,18 +40,18 @@ static int curr_id = 1;         //assegna un id che non decrementa all'eliminazi
 //devo averne due per evitare conflitti causa eliminazione
 
 static void devices_list(void);
-static void add_device(char* device);
+static int add_device(char* device);
 static int parse_id(const char *charId);
 static int find_device_by_id(int id);
-static void link_devices(int child_id, int hub_id);
-static void remove_device(int id);
+static int link_devices(int child_id, int hub_id);
+static int remove_device(int id);
 static bool switch_check(char *tokens[], int count);
-static void switch_device(char *tokens[]);
-static void device_info(int id);
+static int switch_device(char *tokens[]);
+static int device_info(int id);
 static void commands(void);
 static void cleanup_all_devices(void);
 static void handle_sigint(int sig);
-static void unlink_device(int child_id,int hub_id);
+static int unlink_device(int child_id,int hub_id);
 static void remove_device_from_array(int id);
 static int count_direct_children(int parent_id);
 
@@ -199,7 +199,7 @@ static void devices_list(void) {
     printf("\n");
 }
 
-static void add_device(char* device) {
+static int add_device(char* device) {
     DeviceType type; 
 
     if(strcmp(device, "bulb") == 0) {
@@ -220,23 +220,23 @@ static void add_device(char* device) {
     }
     else {
         printf("Invalid device type.\n");
-        return;
+        return ERR_INVALID_PARAM;
     }
 
     if(device_count >= MAX_DEVICES) {
         printf("You reached the limit of devices.\n");
-        return;
+        return ERR_RESOURCE_ERROR;
     }
 
     if(ipc_create_fifo(curr_id, type) == -1) {
         printf("FIFO creation failed.\n");
-        return;
+        return ERR_RESOURCE_ERROR;
     }
 
     pid_t pid = fork();
     if (pid < 0) {
         perror("Error during fork.");
-        return;
+        return ERR_RESOURCE_ERROR;
     }
     
     if(pid == 0) {
@@ -277,6 +277,8 @@ static void add_device(char* device) {
 
     device_count++;
     curr_id++;
+
+    return STATUS_OK;
 
 }
 
@@ -326,32 +328,32 @@ static bool creates_cycle(int child_id, int hub_id) {
     return false;
 }
   
-static void link_devices(int child_id, int hub_id) {
+static int link_devices(int child_id, int hub_id) {
     if(child_id == hub_id) {
         printf("Error: you can't link a device to itself.\n");
-        return;
+        return ERR_SELF_LINK;
     }
     int child_idx = find_device_by_id(child_id);
     int hub_idx = find_device_by_id(hub_id);
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
-        return;
+        return ERR_DEVICE_NOT_FOUND;
     }
 
     if (hub_idx == -1) {
         printf("Error: Hub with ID %d does not exist.\n\n", hub_id);
-        return;
+        return ERR_DEVICE_NOT_FOUND;
     }
 
     if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER && devices[hub_idx].type != DEVICE_CONTROLLER) {
         printf("Error: device ID %d is not a Control Device (Controller, Hub, or Timer).\n\n", hub_id);
-        return;
+        return ERR_DEVICE_TYPE_MISMATCH;
     }
 
     if(creates_cycle(child_id, hub_id)) {
         printf("Error: this link would create a cycle in the hierarchy.\n\n");
-        return;
+        return ERR_CYCLE_DETECTED;
     }
 
     if (devices[child_idx].parent_id != -1 && devices[child_idx].parent_id != CONTROLLER_ID) {
@@ -370,7 +372,7 @@ static void link_devices(int child_id, int hub_id) {
         }
         devices[child_idx].parent_id = CONTROLLER_ID;
         printf("Link completed: Device %d is now directly linked to Controller.\n\n", child_id);
-        return;
+        return STATUS_OK;
     }
 
     // Altrimenti invia richiesta di link al padre (Hub o Timer)
@@ -401,35 +403,39 @@ static void link_devices(int child_id, int hub_id) {
                 close(fd_child);
             }
             devices[child_idx].parent_id = hub_id;
+            return STATUS_OK;
+        } else {
+            return ERR_LINK_FAILED;
         }
     } else {
         printf("Error: failed to connect to parent %d FIFO.\n\n", hub_id);
+        return ERR_RESOURCE_ERROR;
     }
 }
 
-static void unlink_device(int child_id,int hub_id){
+static int unlink_device(int child_id,int hub_id){
     int child_idx = find_device_by_id(child_id);
     int hub_idx = find_device_by_id(hub_id);
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
-        return;
+        return ERR_DEVICE_NOT_FOUND;
     }
 
     if (hub_id == CONTROLLER_ID) {
         devices[child_idx].parent_id = -1;
         printf("Device %d unlinked from Controller.\n\n", child_id);
-        return;
+        return STATUS_OK;
     }
 
     if (hub_idx == -1) {
         printf("Error: Hub with ID %d does not exist.\n\n", hub_id);
-        return;
+        return ERR_DEVICE_NOT_FOUND;
     }
 
     if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER && devices[hub_idx].type != DEVICE_CONTROLLER) {
         printf("Error: device ID %d is not a Hub or Timer.\n\n", hub_id);
-        return;
+        return ERR_DEVICE_TYPE_MISMATCH;
     }
 
     char msg[64];
@@ -450,9 +456,11 @@ static void unlink_device(int child_id,int hub_id){
         pthread_mutex_unlock(&mutex);
 
         devices[child_idx].parent_id = -1;
+        return STATUS_OK;
 
     } else {
         printf("Error: failed to connect to Hub %d FIFO.\n\n", hub_id);
+        return ERR_RESOURCE_ERROR;
     }
 }
 
@@ -471,17 +479,17 @@ static void remove_device_from_array(int id) {
         devices[i] = devices[i + 1];
     }
     device_count--;
-}
+}       
 
-static void remove_device(int id) {
+static int remove_device(int id) {
     if (id == CONTROLLER_ID) {
         printf("Error: the Controller cannot be deleted.\n\n");
-        return;
+        return ERR_PERMISSION_ERROR;
     }
     int index = find_device_by_id(id);
     if (index == -1) {
         printf("No device with this Id.\n\n");
-        return;
+        return ERR_DEVICE_NOT_FOUND;
     }
 
     // Se il dispositivo era collegato a un genitore
@@ -519,6 +527,7 @@ static void remove_device(int id) {
     printf("Device ID: %d is removed\n\n", id);
     fflush(stdout);
 
+    return STATUS_OK;
     
 }
 static bool label_valid_for_type(DeviceType type, const char *label) {
@@ -595,13 +604,13 @@ static bool switch_check(char *tokens[], int count) {
     return false;
 }
 
-static void switch_device(char *tokens[]) {
+static int switch_device(char *tokens[]) {
     int id = parse_id(tokens[1]);
 
     if (id == CONTROLLER_ID) {
         if (strcmp(tokens[2], "main") != 0) {
             printf("Error: the Controller only supports the 'main' switch.\n\n");
-            return;
+            return ERR_INVALID_PARAM;
         }
         controller_state = (strcmp(tokens[3], "on") == 0);
         printf("Controller main switch set to: %s. Cascading to all connected devices...\n\n", controller_state ? "on" : "off");
@@ -628,10 +637,10 @@ static void switch_device(char *tokens[]) {
                 }
             }
         }
-        return;
+        return STATUS_OK;
     }
     int index = find_device_by_id(id);
-    if(index == -1) return;
+    if(index == -1) return ERR_DEVICE_NOT_FOUND;
 
     char message[MAX_MSG_LEN];
     snprintf(message, sizeof(message), "%s %s %s", CMD_SWITCH, tokens[2], tokens[3]);
@@ -649,13 +658,15 @@ static void switch_device(char *tokens[]) {
             pthread_cond_wait(&sync_cond, &mutex);
         }
         pthread_mutex_unlock(&mutex);
+        return STATUS_OK;
 
     } else {
         printf("Error: Failed to communicate with Device %d.\n", id);
+        return ERR_RESOURCE_ERROR;
     }
 }
 
-static void device_info(int id) {
+static int device_info(int id) {
     if (id == CONTROLLER_ID) {
         int num = count_direct_children(CONTROLLER_ID);
         printf(
@@ -670,12 +681,12 @@ static void device_info(int id) {
             controller_state ? "on" : "off",
             num
         );
-        return;
+        return STATUS_OK;
     }
     int index = find_device_by_id(id);
     if (index == -1){
         printf("Device ID: %d not found\n\n", id);
-        return;
+        return ERR_DEVICE_NOT_FOUND;
     }
 
     int fd = ipc_open_for_writing(id, devices[index].type);
@@ -691,8 +702,10 @@ static void device_info(int id) {
             pthread_cond_wait(&sync_cond, &mutex);
         }
         pthread_mutex_unlock(&mutex);
+        return STATUS_OK;
     } else {
         printf("Error: failed to communicate with device ID: %d\n\n ", id);
+        return ERR_RESOURCE_ERROR;
     }
 }
 

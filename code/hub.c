@@ -32,13 +32,13 @@ HubDevice create_hub_struct(int id) {
 
 int hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
     if (hub->num_children >= MAX_CHILDREN) {
-        return -1;
+        return ERR_RESOURCE_ERROR;
     }
 
     // Controlliamo se il dispositivo è già stato aggiunto
     for (int i = 0; i < hub->num_children; i++) {
         if (hub->children[i].id == child_id) {
-            return 1;
+            return ERR_INVALID_PARAM;
         }
     }
 
@@ -47,7 +47,7 @@ int hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
     hub->children[hub->num_children].type = child_type;
     hub->num_children++;
 
-    return 0;
+    return STATUS_OK;
 }
 
 int hub_remove_child(HubDevice *hub, int child_id){
@@ -61,7 +61,7 @@ int hub_remove_child(HubDevice *hub, int child_id){
     }
 
     if (index == -1) {
-        return -1;
+        return ERR_DEVICE_NOT_FOUND;
     }
 
     // Shift degli elementi verso sinistra per coprire il buco
@@ -70,7 +70,7 @@ int hub_remove_child(HubDevice *hub, int child_id){
     }
 
     hub->num_children--;
-    return 0;
+    return STATUS_OK;
 }
 
 static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHILDREN][64], char *overall_state, size_t state_len) {
@@ -170,12 +170,12 @@ void hub_run(HubDevice *hub){
                 if (sscanf(buffer, "%*s %d %d", &child_id, &child_type) == 2) {
 
                     int res = hub_add_child(hub, child_id, (DeviceType)child_type);
-                    if(res == 0){
+                    if(res == STATUS_OK){
                         char msg[MAX_MSG_LEN];
                         snprintf(msg,sizeof(msg), "Link completed: Device %d is now child of %d.", child_id, hub->id);
                         ipc_send_controller(STATUS_OK,msg);
                     } 
-                    else if(res == 1){
+                    else if(res == ERR_INVALID_PARAM){
                         char msg[MAX_MSG_LEN];
                         snprintf(msg, sizeof(msg), "Notice: Device %d is Already linked to Hub %d.", child_id, hub->id);
                         ipc_send_controller(ERR_INVALID_PARAM, msg);
@@ -220,7 +220,7 @@ void hub_run(HubDevice *hub){
                         }
 
                         int res = hub_remove_child(hub, child_id);
-                        if (res == 0) {
+                        if (res == STATUS_OK) {
                             char msg[MAX_MSG_LEN];
                             snprintf(msg, sizeof(msg), "Unlink completed: Device %d removed from Hub %d.", child_id, hub->id);
                             ipc_send_controller(STATUS_OK, msg);
