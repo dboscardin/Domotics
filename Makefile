@@ -37,7 +37,7 @@ run: build
 		echo "============================================="; \
 		echo " Avvio domotics con scenario: $(ARG)"; \
 		echo "============================================="; \
-		cat $(ARG) - | ./$(ARG); \
+		cat $(ARG) - | ./$(TARGET); \
 	else \
 		echo "Avvio normale..."; \
 		./$(TARGET); \
