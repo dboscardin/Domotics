@@ -43,7 +43,7 @@ static void devices_list(void);
 static int add_device(char* device);
 static int parse_id(const char *charId);
 static int find_device_by_id(int id);
-static int link_devices(int child_id, int hub_id);
+static int link_devices(int child_id, int parent_id);
 static int remove_device(int id);
 static bool switch_check(char *tokens[], int count);
 static int switch_device(char *tokens[]);
@@ -51,7 +51,7 @@ static int device_info(int id);
 static void commands(void);
 static void cleanup_all_devices(void);
 static void handle_sigint(int sig);
-static int unlink_device(int child_id,int hub_id);
+static int unlink_device(int child_id,int parent_id);
 static void remove_device_from_array(int id);
 static int count_direct_children(int parent_id);
 
@@ -302,9 +302,9 @@ static int find_device_by_id(int id) {
     return -1;
 }
 
-//ritorna true se collegare child_id sotto hub_id creerebbe un ciclo (se child_id è già antenato di hub_id)
-static bool creates_cycle(int child_id, int hub_id) {
-    int curr_id = hub_id;
+//ritorna true se collegare child_id sotto parent_id creerebbe un ciclo (se child_id è già antenato di parent_id)
+static bool creates_cycle(int child_id, int parent_id) {
+    int curr_id = parent_id;
     int steps = 0;
 
     while(curr_id != -1) {
@@ -328,30 +328,30 @@ static bool creates_cycle(int child_id, int hub_id) {
     return false;
 }
   
-static int link_devices(int child_id, int hub_id) {
-    if(child_id == hub_id) {
+static int link_devices(int child_id, int parent_id) {
+    if(child_id == parent_id) {
         printf("Error: you can't link a device to itself.\n");
         return ERR_SELF_LINK;
     }
     int child_idx = find_device_by_id(child_id);
-    int hub_idx = find_device_by_id(hub_id);
+    int parent_idx = find_device_by_id(parent_id);
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
         return ERR_DEVICE_NOT_FOUND;
     }
 
-    if (hub_idx == -1) {
-        printf("Error: Hub with ID %d does not exist.\n\n", hub_id);
+    if (parent_idx == -1) {
+        printf("Error: Parent device with ID %d does not exist.\n\n", parent_id);
         return ERR_DEVICE_NOT_FOUND;
     }
 
-    if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER && devices[hub_idx].type != DEVICE_CONTROLLER) {
-        printf("Error: device ID %d is not a Control Device (Controller, Hub, or Timer).\n\n", hub_id);
+    if (devices[parent_idx].type != DEVICE_HUB && devices[parent_idx].type != DEVICE_TIMER && devices[parent_idx].type != DEVICE_CONTROLLER) {
+        printf("Error: device ID %d is not a Control Device (Controller, Hub, or Timer).\n\n", parent_id);
         return ERR_DEVICE_TYPE_MISMATCH;
     }
 
-    if(creates_cycle(child_id, hub_id)) {
+    if(creates_cycle(child_id, parent_id)) {
         printf("Error: this link would create a cycle in the hierarchy.\n\n");
         return ERR_CYCLE_DETECTED;
     }
@@ -362,7 +362,7 @@ static int link_devices(int child_id, int hub_id) {
     }
 
     // Se il target è il Controller (ID 0)
-    if (hub_id == CONTROLLER_ID) {
+    if (parent_id == CONTROLLER_ID) {
         int fd_child = ipc_open_for_writing(child_id, devices[child_idx].type);
         if (fd_child != -1) {
             char msg_child[64];
@@ -376,7 +376,7 @@ static int link_devices(int child_id, int hub_id) {
     }
 
     // Altrimenti invia richiesta di link al padre (Hub o Timer)
-    int fd_parent = ipc_open_for_writing(hub_id, devices[hub_idx].type);
+    int fd_parent = ipc_open_for_writing(parent_id, devices[parent_idx].type);
     if (fd_parent != -1) {
         char msg_parent[64];
         snprintf(msg_parent, sizeof(msg_parent), "%s %d %d", CMD_LINK_CHILD, child_id, devices[child_idx].type);
@@ -398,49 +398,49 @@ static int link_devices(int child_id, int hub_id) {
             int fd_child = ipc_open_for_writing(child_id, devices[child_idx].type);
             if (fd_child != -1) {
                 char msg_child[64];
-                snprintf(msg_child, sizeof(msg_child), "%s %d", CMD_SET_PARENT, hub_id);
+                snprintf(msg_child, sizeof(msg_child), "%s %d", CMD_SET_PARENT, parent_id);
                 ipc_send_message(fd_child, msg_child);
                 close(fd_child);
             }
-            devices[child_idx].parent_id = hub_id;
+            devices[child_idx].parent_id = parent_id;
             return STATUS_OK;
         } else {
             return ERR_LINK_FAILED;
         }
     } else {
-        printf("Error: failed to connect to parent %d FIFO.\n\n", hub_id);
+        printf("Error: failed to connect to parent %d FIFO.\n\n", parent_id);
         return ERR_RESOURCE_ERROR;
     }
 }
 
-static int unlink_device(int child_id,int hub_id){
+static int unlink_device(int child_id,int parent_id){
     int child_idx = find_device_by_id(child_id);
-    int hub_idx = find_device_by_id(hub_id);
+    int parent_idx = find_device_by_id(parent_id);
 
     if (child_idx == -1) {
         printf("Error: child device with ID %d does not exist.\n\n", child_id);
         return ERR_DEVICE_NOT_FOUND;
     }
 
-    if (hub_id == CONTROLLER_ID) {
+    if (parent_id == CONTROLLER_ID) {
         devices[child_idx].parent_id = -1;
         printf("Device %d unlinked from Controller.\n\n", child_id);
         return STATUS_OK;
     }
 
-    if (hub_idx == -1) {
-        printf("Error: Hub with ID %d does not exist.\n\n", hub_id);
+    if (parent_idx == -1) {
+        printf("Error: Parent device with ID %d does not exist.\n\n", parent_id);
         return ERR_DEVICE_NOT_FOUND;
     }
 
-    if (devices[hub_idx].type != DEVICE_HUB && devices[hub_idx].type != DEVICE_TIMER && devices[hub_idx].type != DEVICE_CONTROLLER) {
-        printf("Error: device ID %d is not a Hub or Timer.\n\n", hub_id);
+    if (devices[parent_idx].type != DEVICE_HUB && devices[parent_idx].type != DEVICE_TIMER && devices[parent_idx].type != DEVICE_CONTROLLER) {
+        printf("Error: device ID %d is not a Control Device.\n\n", parent_id);
         return ERR_DEVICE_TYPE_MISMATCH;
     }
 
     char msg[64];
     snprintf(msg, sizeof(msg), "%s %d",CMD_UNLINK_CHILD, child_id);
-    int fd = ipc_open_for_writing(hub_id, devices[hub_idx].type);
+    int fd = ipc_open_for_writing(parent_id, devices[parent_idx].type);
     if (fd != -1) {
 
         pthread_mutex_lock(&mutex);
@@ -459,7 +459,7 @@ static int unlink_device(int child_id,int hub_id){
         return STATUS_OK;
 
     } else {
-        printf("Error: failed to connect to Hub %d FIFO.\n\n", hub_id);
+        printf("Error: failed to connect to parent %d FIFO.\n\n", parent_id);
         return ERR_RESOURCE_ERROR;
     }
 }
@@ -715,7 +715,7 @@ static void commands(void) {
     printf("add <device>: Spawns a new device in the house. (Max 50 devices)\n");
     printf("del <id>: Delete an existing device.\n");
     printf("link <id1> to <id2>: id1 will be controlled by id2.\n");
-    printf("unlink <id1> from <id2>: Unlinks id1 from hub id2.\n");
+    printf("unlink <id1> from <id2>: Unlinks id1 from parent id2.\n");
     printf("switch <id> <label> <pos>: Sets the switch label of device id to position pos.\n");
     printf("info <id>: Displays the complete details of the device\n");
     printf("quit: To quit the program.\n");
@@ -926,26 +926,26 @@ void controller_run(void) {
                 printf("Invalid command format. Use: link <id1> to <id2>\n\n");
             } else {
                 int child_id = parse_id(tokens[1]);
-                int hub_id = parse_id(tokens[3]);
+                int parent_id = parse_id(tokens[3]);
 
-                if (child_id != -1 && hub_id != -1) {
-                    link_devices(child_id, hub_id);
+                if (child_id != -1 && parent_id != -1) {
+                    link_devices(child_id, parent_id);
                 }
             }
         }
         else if(strcmp(tokens[0], "unlink") == 0){
-            int child_id = -1, hub_id = -1;
+            int child_id = -1, parent_id = -1;
 
             if (count == 4 && strcmp(tokens[2], "from") == 0) {
                 child_id = parse_id(tokens[1]);
-                hub_id = parse_id(tokens[3]);
+                parent_id = parse_id(tokens[3]);
             }
             else {
                 printf("Invalid command format. Use: unlink <id1> from <id2>\n");
             }
 
-            if (child_id != -1 && hub_id != -1) {
-                unlink_device(child_id, hub_id);
+            if (child_id != -1 && parent_id != -1) {
+                unlink_device(child_id, parent_id);
             }
         }
         else if(strcmp(tokens[0], "switch") == 0) {

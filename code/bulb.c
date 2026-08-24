@@ -152,10 +152,10 @@ void bulb_run(Bulb *bulb) {
                 int sender_id = -1;
                 int sender_type = -1;
 
-                //estraggo id dell'hub
+                //estraggo id del parent
                 if(sscanf(buffer, "%*s %d %d", &sender_id, &sender_type) == 2){
 
-                    //apro fifo hub in scrittura
+                    //apro fifo parent in scrittura
                     int fd_sender = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
 
                     if(fd_sender != -1 ){  
