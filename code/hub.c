@@ -35,13 +35,13 @@ HubDevice create_hub_struct(int id) {
 
 int hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
     if (hub->num_children >= MAX_CHILDREN) {
-        return -1;
+        return ERR_RESOURCE_ERROR;
     }
 
     // Controlliamo se il dispositivo è già stato aggiunto
     for (int i = 0; i < hub->num_children; i++) {
         if (hub->children[i].id == child_id) {
-            return 1;
+            return ERR_INVALID_PARAM;
         }
     }
 
@@ -50,7 +50,7 @@ int hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
     hub->children[hub->num_children].type = child_type;
     hub->num_children++;
 
-    return 0;
+    return STATUS_OK;
 }
 
 int hub_remove_child(HubDevice *hub, int child_id){
@@ -64,7 +64,7 @@ int hub_remove_child(HubDevice *hub, int child_id){
     }
 
     if (index == -1) {
-        return -1;
+        return ERR_DEVICE_NOT_FOUND;
     }
 
     // Shift degli elementi verso sinistra per coprire il buco
@@ -73,7 +73,7 @@ int hub_remove_child(HubDevice *hub, int child_id){
     }
 
     hub->num_children--;
-    return 0;
+    return STATUS_OK;
 }
 
 static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHILDREN][64], char *overall_state, size_t state_len) {
@@ -157,30 +157,28 @@ void hub_run(HubDevice *hub){
     int fd_ascolto = ipc_open_for_listening(hub->id, DEVICE_HUB);
 
     // Ricezione messaggi
-    char buffer[BUFFER_SIZE];
+    char buffer[MAX_MSG_LEN];
     while (1) {
         // Lettura FIFO
         int bytes_letti = ipc_read_line(fd_ascolto, buffer, sizeof(buffer));
 
         if (bytes_letti > 0) {
 
-            //delay
-            ipc_simulate_delay();
-
             //link
             if (strncmp(buffer, CMD_LINK_CHILD, strlen(CMD_LINK_CHILD)) == 0) {
+                ipc_simulate_delay();
                 int child_id;
                 int child_type;
 
                 if (sscanf(buffer, "%*s %d %d", &child_id, &child_type) == 2) {
 
                     int res = hub_add_child(hub, child_id, (DeviceType)child_type);
-                    if(res == 0){
+                    if(res == STATUS_OK){
                         char msg[MAX_MSG_LEN];
                         snprintf(msg,sizeof(msg), "Link completed: Device %d is now child of %d.", child_id, hub->id);
                         ipc_send_controller(STATUS_OK,msg);
                     } 
-                    else if(res == 1){
+                    else if(res == ERR_INVALID_PARAM){
                         char msg[MAX_MSG_LEN];
                         snprintf(msg, sizeof(msg), "Notice: Device %d is Already linked to Hub %d.", child_id, hub->id);
                         ipc_send_controller(ERR_INVALID_PARAM, msg);
@@ -203,6 +201,7 @@ void hub_run(HubDevice *hub){
             }
             //unlink
             else if(strncmp(buffer, CMD_UNLINK_CHILD, strlen(CMD_UNLINK_CHILD)) == 0){
+                ipc_simulate_delay();
                 int child_id;
 
                 if (sscanf(buffer, "%*s %d", &child_id) == 1){
@@ -224,7 +223,7 @@ void hub_run(HubDevice *hub){
                         }
 
                         int res = hub_remove_child(hub, child_id);
-                        if (res == 0) {
+                        if (res == STATUS_OK) {
                             char msg[MAX_MSG_LEN];
                             snprintf(msg, sizeof(msg), "Unlink completed: Device %d removed from Hub %d.", child_id, hub->id);
                             ipc_send_controller(STATUS_OK, msg);
@@ -296,7 +295,8 @@ void hub_run(HubDevice *hub){
                 exit(0);
             }
             //switch
-            else if (strncmp(buffer, "SWITCH", 6) == 0) {
+            else if (strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
+                ipc_simulate_delay();
 
                 char label[32], pos[32];
                 int sender_id = -1, sender_type = -1;
@@ -415,7 +415,7 @@ void hub_run(HubDevice *hub){
                     int fd_parent = ipc_open_for_writing(p_sender_id, p_sender_type);
                     if (fd_parent != -1) {
                         char resp[MAX_MSG_LEN];
-                        snprintf(resp, sizeof(resp), "%s %d %s", CMD_MIRROR_RESP, hub->id, overall_state);
+                        snprintf(resp, sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, hub->id, overall_state);
                         ipc_send_message(fd_parent, resp);
                         close(fd_parent);
                     }

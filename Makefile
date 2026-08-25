@@ -1,10 +1,12 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -pedantic -std=c11 -D_POSIX_C_SOURCE=200809L
+CFLAGS = -Wall -Wextra -pedantic -std=c11 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
 LDLIBS = -lpthread
 
 TARGET = domotics
 SRCS = code/main.c code/controller.c code/bulb.c code/window.c code/fridge.c code/ipc.c code/hub.c code/device.c code/timer.c
 OBJS = $(SRCS:.c=.o)
+
+ARG ?=
 
 .PHONY: all build clean run
 
@@ -31,7 +33,15 @@ clean:
 	rm -f /tmp/domotica_* 2>/dev/null || true
 #prima compila se serve, poi esegue il programma
 run: build
-	./$(TARGET)
+		@if [ -n "$(ARG)" ]; then \
+		echo "============================================="; \
+		echo " Avvio domotics con scenario: $(ARG)"; \
+		echo "============================================="; \
+		cat $(ARG) - | ./$(TARGET); \
+	else \
+		echo "Avvio normale..."; \
+		./$(TARGET); \
+	fi
 
 # A MAekfile contains
 # A list of source files
