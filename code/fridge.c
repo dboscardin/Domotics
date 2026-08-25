@@ -8,7 +8,6 @@
 #include "device.h"
 #include "protocol.h"
 
-#define _DEFAULT_SOURCE
 #define BUFFER_SIZE 256
 
 Fridge create_fridge_struct(int id) {
@@ -287,11 +286,11 @@ void fridge_run(Fridge *fridge) {
             }
             if (fridge->temp != fridge->thermostat) {
                 if (fridge->temp < fridge->thermostat) {
-                    sleep(1000);
+                    usleep(1000);
                     fridge->temp++;
                 } else {
-                    sleep(1000);
-                    fridge->temp++;
+                    usleep(1000);
+                    fridge->temp--;
                 }
             }
         }

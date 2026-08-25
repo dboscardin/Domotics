@@ -9,7 +9,6 @@
 #include "device.h"
 #include "protocol.h"
 
-#define _DEFAULT_SOURCE
 #define BUFFER_SIZE 256
 
 static const char *get_device_type_name(DeviceType type) {
@@ -119,7 +118,7 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
                 ptr += strlen(CMD_MIRROR_RESP);
             }
         } else {
-            sleep(50000);
+            usleep(50000);
             timeout--;
         }
     }
@@ -267,7 +266,7 @@ void hub_run(HubDevice *hub){
                     if (n > 0 && strncmp(deleted_buf, "MSG", 3) == 0) {
                         deleted++;
                     } else {
-                        sleep(10000); //10ms
+                        usleep(10000); //10ms
                         timeout--;
                     }
                 }
@@ -337,7 +336,7 @@ void hub_run(HubDevice *hub){
                     if (n > 0 && strncmp(msg_buf, "MSG", 3) == 0) {
                         msg++;
                     } else {
-                        sleep(10000);
+                        usleep(10000);
                         timeout--;
                     }
                 }
@@ -432,7 +431,7 @@ void hub_run(HubDevice *hub){
             
 
         } else {
-            sleep(50000); // 50ms
+            usleep(50000); // 50ms
         }
     }
 

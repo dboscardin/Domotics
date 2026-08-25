@@ -126,7 +126,7 @@ make run
 ### 3. Esecuzione con Scenario
 Esegue una sequenza predefinita di comandi (utile per dimostrazioni o test automatici) e consente di proseguire in modalità interattiva:
 ```bash
-make run SCENARIO=scenario.txt
+make run ARGS=scenario.txt
 ```
 
 ### 4. Pulizia

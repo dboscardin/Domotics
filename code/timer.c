@@ -10,7 +10,6 @@
 #include "device.h"
 #include "protocol.h"
 
-#define _DEFAULT_SOURCE
 #define BUFFER_SIZE 256
 
 static const char *get_device_type_name(DeviceType type) {
@@ -73,7 +72,7 @@ static void get_timer_state(TimerDevice *timer, int fd_ascolto, char *out_state,
                 ptr += strlen(CMD_MIRROR_RESP);
             }
         } else {
-            sleep(50000);
+            usleep(50000);
             timeout--;
         }
     }
@@ -132,7 +131,7 @@ void timer_run(TimerDevice *timer){
                         char msg_buf[MAX_MSG_LEN];
                         int n = ipc_read_line(fd_ascolto, msg_buf, sizeof(msg_buf));
                         if (n > 0 && strncmp(msg_buf, "MSG", 3) == 0) msg++;
-                        else { sleep(10000); timeout--; }
+                        else { usleep(10000); timeout--; }
                     }
 
                     //notifico il controller
@@ -159,7 +158,7 @@ void timer_run(TimerDevice *timer){
                         char msg_buf[MAX_MSG_LEN];
                         int n = ipc_read_line(fd_ascolto, msg_buf, sizeof(msg_buf));
                         if (n > 0 && strncmp(msg_buf, "MSG", 3) == 0) msg++;
-                        else { sleep(10000); timeout--; }
+                        else { usleep(10000); timeout--; }
                     }
 
                     //notifico il controller
@@ -322,7 +321,7 @@ void timer_run(TimerDevice *timer){
                             if (n > 0 && strncmp(msg_buf, "MSG", 3) == 0){
                                 msg++;
                             } else { 
-                                sleep(10000); timeout--; 
+                                usleep(10000); timeout--; 
                             }
                         }
                     }
@@ -368,7 +367,7 @@ void timer_run(TimerDevice *timer){
                         if (n > 0 && strncmp(deleted_buf, "MSG", 3) == 0) {
                             deleted++;
                         } else {
-                            sleep(10000);
+                            usleep(10000);
                             timeout--;
                         }
                     }
@@ -415,7 +414,7 @@ void timer_run(TimerDevice *timer){
                 if (timer->num_children == 0) {
                     offset += snprintf(message + offset, sizeof(message) - offset, "Linked Device: none\n");
                 } else {
-                    char child_state[MAX_MSG_LEN];
+                    char child_state[64];
                     get_timer_state(timer, fd_ascolto, child_state, sizeof(child_state));
 
                     offset += snprintf(message + offset, sizeof(message) - offset, "Linked Device ID: %d | Type: %s | State: %s\n", 
@@ -435,7 +434,7 @@ void timer_run(TimerDevice *timer){
                 int p_sender_id;
                 int p_sender_type;
                 if (sscanf(buffer, "%*s %d %d", &p_sender_id, &p_sender_type) == 2) {
-                    char child_state[MAX_MSG_LEN];
+                    char child_state[64];
                     get_timer_state(timer, fd_ascolto, child_state, sizeof(child_state));
                     
                     int fd_parent = ipc_open_for_writing(p_sender_id, p_sender_type);
@@ -457,7 +456,7 @@ void timer_run(TimerDevice *timer){
                 ipc_send_controller(ERR_INVALID_COMMAND,"Timer unknown command.");
             }
         } else{
-            sleep(50000);
+            usleep(50000);
         }
     }
 
