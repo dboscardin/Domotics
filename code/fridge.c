@@ -192,9 +192,9 @@ void fridge_run(Fridge *fridge) {
                         //il comando viene da un genitore
                         int fd_parent = ipc_open_for_writing(sender_id,(DeviceType)sender_type);
                         if(fd_parent != -1){
-                            char msg[MAX_MSG_LEN];
-                                snprintf(msg, sizeof(msg), "MSG %d", fridge->id);
-                                ipc_send_message(fd_parent, msg);
+                            char message[MAX_MSG_LEN];
+                                snprintf(message, sizeof(message), "MESSAGE %d", fridge->id);
+                                ipc_send_message(fd_parent, message);
                                 close(fd_parent); 
                         }
                     } else {
