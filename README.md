@@ -1,159 +1,100 @@
-# Sistema di Domotica Emulato (Domotics)
-**Progetto per il Laboratorio del Corso di Sistemi Operativi**
+# Domotics
 
-Sistema di domotica modulare e concorrente in cui ogni dispositivo è rappresentato da un **processo OS autonomo**. La gerarchia tra i dispositivi è puramente **logica** ed è gestita mediante instradamento dei messaggi tramite **Inter-Process Communication (IPC)** su *named pipes* (FIFO POSIX).
+The project implements an emulated home automation system, in which each device is represented by a **distinct UNIX process**, spawned by the Controller, our root process. Processes communicate through **POSIX named pipes (FIFOs)**, exchanging messages according
+to a previously defined protocol.
 
----
+## User guide and commands
 
-## 🏛️ Architettura del Sistema
+### Controller's interactive shell
 
-```
-                         [ Controller (ID 0) ]
-                       (Thread Main + Listener)
-                                  │
-                 ┌────────────────┼────────────────┐
-                 ▼                ▼                ▼
-           [ Hub (ID 1) ]   [ Timer (ID 2) ]  [ Fridge (ID 5) ]
-                 │                │
-           ┌─────┴─────┐          ▼
-           ▼           ▼    [ Bulb (ID 6) ]
-     [ Bulb (ID 3) ] [ Window (ID 4) ]
-```
-
-- **Gerarchia OS Piatta**: Tutti i processi dei dispositivi sono figli diretti (`fork`) del processo radice **Controller**.
-- **Gerarchia Logica**: Definita a runtime mediante scambio di messaggi IPC (`link <id1> to <id2>`), senza riavviare i processi.
-- **Canali IPC**: Ogni dispositivo crea e ascolta su una FIFO dedicata `/tmp/domotica_<tipo>_<id>.fifo`. Il Controller ascolta su `/tmp/domotica_controller_0.fifo`.
-- **Concorrenza & Multithreading**:
-  - Il **Controller** impiega un'architettura multithread con `pthreads`: il *Main Thread* legge i comandi da tastiera (`stdin`), mentre il *Listener Thread* riceve le risposte asincrone dalla FIFO.
-  - Mascheramento sicuro di `SIGCHLD` (`sigprocmask`) per prevenire race condition durante la manipolazione delle strutture dati.
-  - Simulazione dei tempi di elaborazione (`ipc_simulate_delay`) compresi tra 1 e 3 secondi per testare la concorrenza.
-
----
-
-## 🔌 Dispositivi Supportati
-
-### 1. Control Devices (Dispositivi di Controllo)
-- **Controller (ID 0)**:
-  - *Stato*: `On`/`Off` (interruttore `main`).
-  - *Registro*: `num` (numero di figli logici diretti collegati).
-- **Hub**:
-  - Consente di raggruppare dispositivi in parallelo e propagare i comandi a cascata.
-  - *Mirroring*: interroga attivamente i figli via IPC e riassume lo stato complessivo. Se i figli presentano stati discordanti, riporta lo stato `Manual_Override`. Un nuovo comando all'Hub ripristina la consistenza eliminando l'override.
-- **Timer**:
-  - Programmazione temporale (registri `begin` ed `end` in formato `HH:MM`) per un dispositivo o ramo collegato.
-  - Esegue accensione/spegnimento automatico in base all'orologio di sistema e notifica il Controller.
-
-### 2. Interaction Devices (Dispositivi Interattivi)
-- **Bulb**:
-  - *Stato*: `On`/`Off` (interruttore `power`).
-  - *Registro*: `time` (tempo totale di accensione in secondi, tracciato con `CLOCK_MONOTONIC`).
-- **Window**:
-  - *Stato*: `Open`/`Closed` (interruttori `open` e `close`).
-  - *Switch a molla*: i comandi modificano lo stato ma ritornano automaticamente in posizione inattiva.
-  - *Registro*: `time` (tempo totale di apertura).
-- **Fridge**:
-  - *Stato*: `Open`/`Closed` (interruttori `open` e `close`).
-  - *Registri*:
-    - `time` (tempo totale di apertura).
-    - `delay` (tempo in secondi per l'auto-chiusura automatica della porta).
-    - `temp` (temperatura interna corrente).
-    - `perc` (% di riempimento, 0-100) — *Modificabile solo manualmente*.
-    - `thermostat` (temperatura target) — *Modificabile solo manualmente*.
-
----
-
-## 💻 Guida all'Uso e Comandi
-
-### Shell Interattiva del Controller
-
-| Comando | Descrizione | Esempio |
+| Command | Description | Example |
 | :--- | :--- | :--- |
-| `list` | Elenca tutti i dispositivi, PID, tipo e collegamento logico | `list` |
-| `add <device>` | Istanzia un nuovo processo (`bulb`, `window`, `fridge`, `hub`, `timer`) | `add bulb` |
-| `del <id>` | Termina un dispositivo (se Control Device, cancella a cascata i figli) | `del 1` |
-| `link <id1> to <id2>` | Collega logicamente il dispositivo `id1` sotto il controllo di `id2` | `link 3 to 1` |
-| `unlink <id1> from <id2>`| Scollega il dispositivo `id1` dal genitore `id2` | `unlink 3 from 1` |
-| `switch <id> <label> <pos>` | Imposta lo switch/registro `<label>` del dispositivo `<id>` | `switch 3 power on` |
-| `info <id>` | Mostra le informazioni dettagliate e lo stato del dispositivo | `info 1` |
-| `cmds` | Mostra la lista dei comandi disponibili | `cmds` |
-| `quit` | Termina l'applicazione e rilascia tutte le risorse | `quit` |
+| `list` | Lists all devices, PID, type and logical link. | `list` |
+| `add <device>` | Creates a new process (`bulb`, `window`, `fridge`, `hub`, `timer`). | `add bulb` |
+| `del <id>` | Terminates a process (if Control Device, deletes on cascade his children). | `del 1` |
+| `link <id1> to <id2>` | Logically link `id1` device to `id2` device. | `link 3 to 1` |
+| `unlink <id1> from <id2>`| Unlink `id1` device from the parent `id2` | `unlink 3 from 1` |
+| `switch <id> <label> <pos>` | Sets the switch/registry `<label>` of `<id>` device | `switch 3 power on` |
+| `info <id>` | Shows details about <id> device's state. | `info 1` |
+| `cmds` | Shows available commands list. | `cmds` |
+| `quit` | Exits the app and releases the resources. | `quit` |
 
-### Script di Interazione Manuale (Bypass Controller)
-Simula un'azione fisica diretta eseguita localmente sul dispositivo (es. pressione del pulsante fisico o modifica manuale dei parametri del frigo):
+### Manual interaction script (Bypass Controller)
+Simulates a direct physical action performed locally on the device (e.g., pressing a physical button or manually changing refrigerator settings):
 
 ```bash
 ./manual_interaction.sh <id> <command> [parameters]
 ```
 
-**Esempi:**
+**Examples:**
 ```bash
-# Accensione/spegnimento manuale di una lampadina
+# Turning a bulb on/off
 ./manual_interaction.sh 3 switch power on
 
-# Apertura/chiusura finestra
+# Open/close window
 ./manual_interaction.sh 4 switch open on
 
-# Modifica manuale dei registri protetti del frigorifero
+# Manual override of the fridge's protected registers
 ./manual_interaction.sh 5 switch perc 85
 ./manual_interaction.sh 5 switch thermostat 4
 
-# Richiesta info o cancellazione diretta
+# Request of info or direct cancellation
 ./manual_interaction.sh 3 info
 ./manual_interaction.sh 3 delete
 ```
 
 ---
 
-## 🛠️ Compilazione ed Esecuzione
+## Compilation and Execution
 
-Il progetto include un `Makefile` conforme agli standard POSIX.
+The project includes a POSIX-compliant `Makefile`.
 
-### 1. Compilazione
+### 1. Compilation
 ```bash
 make build
-# oppure semplicemente:
+# or:
 make
 ```
 
-### 2. Esecuzione Standard
-Avvia la shell interattiva del sistema:
+### 2. Standard Execution
+Launch the system's interactive shell:
 ```bash
 make run
-# oppure:
+# or:
 ./domotics
 ```
 
-### 3. Esecuzione con Scenario
-Esegue una sequenza predefinita di comandi (utile per dimostrazioni o test automatici) e consente di proseguire in modalità interattiva:
+### 3. Execution with scenario
+Executes a predefined sequence of commands:
 ```bash
 make run ARGS=scenario.txt
 ```
 
 ### 4. Pulizia
-Rimuove i file oggetto compilati, l'eseguibile e pulisce eventuali pipe FIFO rimaste in `/tmp`:
+Removes compiled object files and the executable, and cleans up any FIFO pipes left in `/tmp`:
 ```bash
 make clean
 ```
 
 ---
 
-## 📁 Struttura della Repository
+## Repository structure
 
 ```
 .
-├── Makefile                # Regole di build, clean e run
-├── README.md               # Documentazione del progetto
-├── manual_interaction.sh   # Script bash per interazione manuale (override)
-├── scenario.txt            # Scenario dimostrativo di test
-└── code/                   # Sorgenti C
-    ├── main.c              # Entry point del programma
-    ├── controller.h / .c   # Processo principale Controller e shell interattiva
-    ├── device.h / .c       # Tipi e utility comuni a tutti i dispositivi
-    ├── hub.h / .c          # Logica del dispositivo di controllo Hub
-    ├── timer.h / .c        # Logica del dispositivo di controllo Timer
-    ├── bulb.h / .c         # Dispositivo Lampadina
-    ├── window.h / .c       # Dispositivo Finestra
-    ├── fridge.h / .c       # Dispositivo Frigorifero
-    ├── ipc.h / .c          # Wrapper per gestione FIFO e messaggistica
-    └── protocol.h          # Costanti di protocollo e codici di errore
+├── Makefile                # Build, clean e run rules
+├── README.md               # Project documentation
+├── manual_interaction.sh   # Script bash for manual override
+├── scenario.txt            # Demonstration test scenario
+└── code/
+    ├── main.c              # Entry point
+    ├── controller.h / .c   # Main process and controller shell
+    ├── device.h / .c       # Types and utility common to all devices
+    ├── hub.h / .c  
+    ├── timer.h / .c
+    ├── bulb.h / .c 
+    ├── window.h / .c
+    ├── fridge.h / .c
+    ├── ipc.h / .c          # FIFO and messages management
+    └── protocol.h          # const and error codes
 ```
