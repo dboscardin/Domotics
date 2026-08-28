@@ -6,14 +6,14 @@
 typedef struct {
     int id;
     int parent_id;
-    bool is_open;                   // Stato dello sportello
-    long time;                      // Tempo totale di apertura cumulato
-    int delay;                      // Tempo dopo il quale il frigo si chiude da solo
-    int perc;                       // Percentuale di riempimento
-    int temp;                       // Temperatura interna attuale
-    int thermostat;                 // Temperatura target impostata
-    struct timespec active_since;   /// Timestamp dell'ultima apertura per il tracking
-    bool tracking;                  // true se lo sportello è aperto
+    bool is_open;                   // Door state
+    long time;                      // Total accumulated open time
+    int delay;                      // Delay after which the fridge auto-closes
+    int perc;                       // Fill percentage
+    int temp;                       // Current internal temperature
+    int thermostat;                 // Target thermostat temperature
+    struct timespec active_since;   // Timestamp of the last opening for tracking
+    bool tracking;                  // true if door is currently open
 } Fridge;
 
 Fridge create_fridge_struct(int id);

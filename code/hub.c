@@ -34,14 +34,14 @@ int hub_add_child(HubDevice *hub, int child_id, DeviceType child_type) {
         return ERR_RESOURCE_ERROR;
     }
 
-    // Controlliamo se il dispositivo è già stato aggiunto
+    // Check if the device is already added
     for (int i = 0; i < hub->num_children; i++) {
         if (hub->children[i].id == child_id) {
             return ERR_INVALID_PARAM;
         }
     }
 
-    // Colleghiamo il nuovo dispositivo figlio
+    // Attach the new child device
     hub->children[hub->num_children].id = child_id;
     hub->children[hub->num_children].type = child_type;
     hub->num_children++;
@@ -63,7 +63,7 @@ int hub_remove_child(HubDevice *hub, int child_id){
         return ERR_DEVICE_NOT_FOUND;
     }
 
-    // Shift degli elementi verso sinistra per coprire il buco
+    // Shift elements left to fill the gap
     for (int i = index; i < hub->num_children - 1; i++) {
         hub->children[i] = hub->children[i + 1];
     }
@@ -72,7 +72,7 @@ int hub_remove_child(HubDevice *hub, int child_id){
     return STATUS_OK;
 }
 
-// stato in tempo reale
+// Real-time state
 // MIRRORING
 static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHILDREN][64], char *overall_state, size_t state_len) {
     if (hub->num_children == 0) {
@@ -80,7 +80,7 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
         return;
     }
 
-    //Invio MIRROR
+    // Send MIRROR
     for (int i = 0; i < hub->num_children; i++) {
         snprintf(child_states[i], 64, "Unknown");
         
@@ -93,7 +93,7 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
         }
     }
 
-    //Aspetto le risposte dai figli
+    // Wait for replies from child devices
     int received = 0;
     int timeout = 1000; 
 
@@ -122,7 +122,7 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
         }
     }
 
-    //calcolo dello stato
+    // Compute overall state
     bool is_active = false;
     bool is_inactive = false;
 
@@ -150,16 +150,16 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
 
 void hub_run(HubDevice *hub){
 
-    //generazioen valore casuale
+    // Generate unique random seed
     srand(time(NULL) ^ getpid());
 
-    // Apertura FIFO ascolto
+    // Open listening FIFO
     int fd_ascolto = ipc_open_for_listening(hub->id, DEVICE_HUB);
 
-    // Ricezione messaggi
+    // Message reception
     char buffer[MAX_MSG_LEN];
     while (1) {
-        // Lettura FIFO
+        // Read FIFO
         int bytes_letti = ipc_read_line(fd_ascolto, buffer, sizeof(buffer));
 
         if (bytes_letti > 0) {
@@ -260,19 +260,19 @@ void hub_run(HubDevice *hub){
                 }
 
                 int deleted = 0;
-                int timeout = 1000; //timer 10 sec per recauzione
+                int timeout = 1000; // 10 sec precautionary timeout
                 while (deleted < hub->num_children && timeout > 0) {
                     char deleted_buf[64];
                     int n = ipc_read_line(fd_ascolto, deleted_buf, sizeof(deleted_buf));
                     if (n > 0 && strncmp(deleted_buf, "MSG", 3) == 0) {
                         deleted++;
                     } else {
-                        usleep(10000); //10ms
+                        usleep(10000); // 10ms
                         timeout--;
                     }
                 }
 
-                //rispondo a chi mi ha eliminato
+                // Respond to the process that deleted this device
                 if (sscanf(buffer, "%*s %d %d", &sender_id,&sender_type) == 2) {
                     int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                     if (fd_parent != -1) {
@@ -306,7 +306,7 @@ void hub_run(HubDevice *hub){
                     int child_id = hub->children[i].id;
                     DeviceType child_type = hub->children[i].type;
 
-                    //Traduzione del comando
+                    // Command translation
                     const char *out_label = label;
                     const char *out_pos = pos;
                     if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
@@ -328,7 +328,7 @@ void hub_run(HubDevice *hub){
                     } 
                 }
 
-                //aspetto che tutti i figli rispondano
+                // Wait for all children to respond
                 int msg = 0;
                 int timeout = 1000;
                 while (msg < hub->num_children && timeout > 0) {
@@ -343,7 +343,7 @@ void hub_run(HubDevice *hub){
                 }
                 
                 
-                // controllo se il messagio di switch è mandato dal controller oppure da un hub/timer cosi da dirgli che ho finito il mio lavoro
+                // Check if switch message is sent from the controller or from a parent hub/timer so as to acknowledge completion
                 if ( parsed >= 3) {
                     int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                     if(fd_parent != -1) {
@@ -434,7 +434,7 @@ void hub_run(HubDevice *hub){
             
 
         } else {
-            // se la fifo è vuota sospendo il processo per 50ms per evitare di consumare il 100% di CPU
+            // If the FIFO is empty, sleep for 50ms to avoid consuming 100% CPU
             usleep(50000);
         }
     }

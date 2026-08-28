@@ -6,16 +6,16 @@
 #include "device.h"
 #include "protocol.h"
 
-// Estrae il nuovo parent_id dal comando IPC e aggiorna la variabile del dispositivo
+// Extracts the new parent_id from the IPC command and updates the device variable
 void handle_set_parent(int *parent_id, const char *buffer) {
     int new_parent_id;
-    // Legge il buffer saltando la prima parola
+    // Reads the buffer skipping the first word
     if (sscanf(buffer, "%*s %d", &new_parent_id) == 1) {
         *parent_id = new_parent_id;
     }
 }
 
-// Formatta il parent_id in una stringa leggibile
+// Formats the parent_id into a readable string
 void format_parent_string(int parent_id, char *parent_str, size_t size) {
     if (parent_id == -1) {
         snprintf(parent_str, size, "None");
@@ -26,7 +26,7 @@ void format_parent_string(int parent_id, char *parent_str, size_t size) {
     }
 }
 
-// Calcola i secondi trascorsi da un dato timestamp
+// Computes elapsed seconds from a given timestamp
 long compute_elapsed_seconds(struct timespec *active_since) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);

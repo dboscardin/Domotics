@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "device.h"
 
-// il timer può avere solo un figlio
+// The timer can only have one child
 #define MAX_TIMER_CHILDREN 1
 
 typedef struct {

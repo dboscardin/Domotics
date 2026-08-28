@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# codici di errore standard
+# Standard error codes
 STATUS_OK=0
 ERR_DEVICE_NOT_FOUND=1
 ERR_INVALID_COMMAND=2
@@ -16,7 +16,7 @@ ERR_TIMEOUT=11
 ERR_RESOURCE_ERROR=12
 ERR_PERMISSION_ERROR=13
 
-# controllo dei 2 parametri obbligatori
+# Check the 2 parameters
 if [ "$#" -lt 2 ]; then
 
     echo "Use: $0 <id> <command> [parameters]"
@@ -27,69 +27,69 @@ if [ "$#" -lt 2 ]; then
     exit "$ERR_INVALID_COMMAND"
 fi
 
-# controllo se il parametro id è un numero
+# Check if id parameter is a number
 if ! [[ "$1" =~ ^[0-9]+$ ]]; then
     echo "Error: param <id> must be a number"
     exit "$ERR_INVALID_PARAM"
 fi
 
-# assegnazione variabili
+# Variable assignments
 ID=$1
 COMMAND="$2"
-shift 2 # per prendere i parametri finali
+shift 2 # To get the remaining parameters
 PARAMETERS="$@"
 
-# conversione in maiscolo
+# Convert to uppercase
 COMMAND=$(echo "$COMMAND" | tr '[:lower:]' '[:upper:]')
 
-# whitelist dei comandi
+# Command whitelist
 if [ "$COMMAND" != "SWITCH" ] && [ "$COMMAND" != "DELETE" ] && [ "$COMMAND" != "INFO" ]; then
     echo "Error: command '$COMMAND' is not supported."
     echo "Supported commands are: switch, info, delete"
     exit "$ERR_INVALID_COMMAND"
 fi
 
-# controllo parametri per delete e info
+# Check parameters for delete and info
 if { [ "$COMMAND" = "DELETE" ] || [ "$COMMAND" = "INFO" ]; } && [ -n "$PARAMETERS" ]; then
     echo "Error: command '$COMMAND' does not support any parameters."
     exit "$ERR_INVALID_PARAM"
 fi
 
 
-# controllo parametri per switch
+# Check parameters for switch
 if [ "$COMMAND" = "SWITCH" ]; then
-    # estraggo quante parole ci sono in parameters
+    # Extract words from parameters
     read -r LABEL POS EXTRA <<< "$PARAMETERS"
 
-    # verifico che si siano esattamente due parametri
+    # Verify that there are exactly two parameters
     if [ -z "$LABEL" ] || [ -z "$POS" ] || [ -n "$EXTRA" ]; then
         echo "Error: command 'switch' requires exactly 2 parameters (<label> <value>)."
         exit "$ERR_INVALID_PARAM"
     fi
 
-    # whitelist delle label
+    # whitelist
 
     LABEL_LOWER=$(echo "$LABEL" | tr '[:upper:]' '[:lower:]')
     POS_LOWER=$(echo "$POS" | tr '[:upper:]' '[:lower:]')
     case "$LABEL_LOWER" in
         power|open|close|main)
-            # acceta solo on/off
+            # Only accepts on/off
             if [ "$POS_LOWER" != "on" ] && [ "$POS_LOWER" != "off" ]; then
                 echo "Error: value for '$LABEL_LOWER' must be 'on' or 'off'."
                 exit "$ERR_INVALID_PARAM"
             fi
 
-            POS=$POS_LOWER # per sicurezza
+            POS=$POS_LOWER # For safety
             ;;
         
         delay|perc|thermostat|temp)
-            # controllo se pos è un numero
+            # Check if pos is a number
             if ! [[ "$POS" =~ ^-?[0-9]+$ ]]; then
                 echo "Error: value for '$LABEL_LOWER' must be an integer number."
                 exit "$ERR_INVALID_PARAM"
             fi
 
-            # la percentuale deve essere tra 0 e 100
+            # Percentage must be between 0 and 100
             if [ "$LABEL_LOWER" = "perc" ]; then
                 if [ "$POS" -lt 0 ] || [ "$POS" -gt 100 ]; then
                     echo "Error: percentage (perc) must be between 0 and 100."
@@ -98,14 +98,14 @@ if [ "$COMMAND" = "SWITCH" ]; then
             fi
             ;;
         begin|end)
-            # controllo orario formato HH:MM
+            # Check time in HH:MM format
             if ! [[ "$POS" =~ ^([0-1][0-9]|2[0-3]):[0-5][0-9]$ ]]; then
                 echo "Error: value for '$LABEL_LOWER' must be in a valid HH:MM format (e.g., 14:30)."
                 exit "$ERR_INVALID_PARAM"
             fi
             ;;
         *)
-            # label non esiste
+            # Label does not exist
             echo "Error: invalid switch label '$LABEL'."
             echo "Supported labels: power, open, close, delay, perc, thermostat, begin, end"
             exit "$ERR_INVALID_PARAM"
@@ -120,26 +120,26 @@ fi
 
 
 
-# Creo il comando da mandare al dispositivo
+# Create the command to send to the device
 if [ -z "$PARAMETERS" ]; then
     CMD="$COMMAND"
 else
     CMD="$COMMAND $PARAMETERS MANUAL"
 fi
 
-# cerco la fifo
+# Search for the FIFO
 FIFO_PATH=$(ls /tmp/domotica_*_${ID}.fifo 2>/dev/null)
 
-# verifico se esiste davvero (-p controlla se il file è un named pipe)
+# Verify that it actually exists (-p checks if the file is a named pipe)
 if [ -z "$FIFO_PATH" ] || [ ! -p "$FIFO_PATH" ]; then 
     echo "Error: device not found with ID:$ID"
     exit "$ERR_DEVICE_NOT_FOUND"
 fi
 
-# invio il comando alla fifo
+# Send the command to the FIFO
 echo "$CMD" > "$FIFO_PATH"
 
-# controllo se è andato a buon fine
+# Check if the operation succeeded
 if [ $? -eq 0 ]; then
     echo "Command $CMD sent successfully to Device ID: $ID"
     exit "$STATUS_OK"

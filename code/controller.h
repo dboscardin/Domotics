@@ -1,7 +1,7 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-//funzione per avviare il controller
+// Function to run the controller
 void controller_run(void);
 
 #endif

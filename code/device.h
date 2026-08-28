@@ -1,11 +1,11 @@
-// ciò che è comune a tutti i device
+// Common declarations for all devices
 #ifndef DEVICE_H
 #define DEVICE_H
 
 #include <sys/types.h>
 #include <stdbool.h>
 
-// tipologia del dispositivo
+// Device type
 typedef enum {
     DEVICE_CONTROLLER,
     DEVICE_HUB,
@@ -23,19 +23,19 @@ typedef struct {
     int parent_id;
 } DeviceInfo;
 
-//per hub e timer
+// For hub and timer
 typedef struct {
     int id;
     DeviceType type;
 } ChildDevice;
 
-// Estrae il nuovo parent_id dal comando IPC e aggiorna la variabile del dispositivo
+// Extracts the new parent_id from the IPC command and updates the device variable
 void handle_set_parent(int *parent_id, const char *buffer);
 
-// Formatta il parent_id in una stringa leggibile
+// Formats the parent_id into a readable string
 void format_parent_string(int parent_id, char *parent, size_t size);
 
-// Calcola i secondi trascorsi da un dato timestamp
+// Computes elapsed seconds from a given timestamp
 long compute_elapsed_seconds(struct timespec *active_since);
 
 #endif

@@ -6,10 +6,10 @@
 typedef struct {
     int id;
     int parent_id;
-    bool is_open;                   // Stato della finestra
-    long time;                      // Tempo totale cumulato di apertura
-    struct timespec active_since;   // Timestamp dell'ultima apertura per il tracciamento
-    bool tracking;                  // Flag che indica se il tempo è attualmente tracciato
+    bool is_open;                   // Window open state
+    long time;                      // Total accumulated open time
+    struct timespec active_since;   // Timestamp of the last opening for tracking
+    bool tracking;                  // Flag indicating if time is currently being tracked
 } Window;
 
 Window create_window_struct(int id);

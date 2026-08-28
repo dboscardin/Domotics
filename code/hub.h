@@ -5,10 +5,10 @@
 #include <stddef.h>
 #include "device.h"
 
-//capacità massima dei figli
+// Maximum child device capacity
 #define MAX_CHILDREN 50
 
-// Struttura dell'Hub
+// Hub structure
 typedef struct {
     int id;
     int parent_id;
@@ -16,18 +16,18 @@ typedef struct {
     int num_children;
 } HubDevice;
 
-// Inizializza le variabili interne della struct Hub
+// Initializes the internal fields of the Hub struct
 HubDevice create_hub_struct(int id);
 
-//aggiunge un figlio all'hub
+// Adds a child device to the hub
 int hub_add_child(HubDevice *hub, int child_id, DeviceType type);
 
-//rimuove un figlio dall'hub
+// Removes a child device from the hub
 int hub_remove_child(HubDevice *hub, int child_id);
 
 void hub_run(HubDevice *hub);
 
-//Creazione hub
+// Hub creation
 void create_hub(int id);
 
 #endif

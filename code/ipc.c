@@ -13,14 +13,14 @@
 
 #define PERMS 0666
 
-//Array per convertire l'enum DeviceType in stringa
+// Array to convert the DeviceType enum to a string
 const char *names[] = {"controller", "hub", "timer", "bulb", "window", "fridge"};
 
 int ipc_create_fifo(int id, DeviceType type) {
     char path_name[64];
     snprintf(path_name, sizeof(path_name), FIFO_PATH_FMT, names[type], id);
 
-    //elimina eventuali vecchie fifo 
+    // Remove any existing FIFO 
     unlink(path_name);
 
     int result = mkfifo(path_name, PERMS);
@@ -31,8 +31,8 @@ int ipc_create_fifo(int id, DeviceType type) {
 int ipc_open_for_listening(int id, DeviceType type) {
     char path_name[64];
     snprintf(path_name, sizeof(path_name), FIFO_PATH_FMT, names[type], id);
-    //apro la fifo in O_RDWR per evitare di ricevere continuamente EOF quando non ci sono processi collegati
-    // O_NONBLOCK permette al ciclo while(1) dei device di non bloccarsi
+    // Open the FIFO with O_RDWR to prevent receiving continuous EOF when no processes are connected
+    // O_NONBLOCK prevents the while(1) loop of devices from blocking
     int fd = open(path_name,  O_RDWR | O_NONBLOCK);
     if(fd == -1) perror("open");
     
@@ -49,15 +49,15 @@ int ipc_open_for_writing(int id, DeviceType type) {
 }
 
 int ipc_read_line(int fd, char *buffer, size_t size) {
-    // legge dalla FIFO
+    // Reads from the FIFO
     ssize_t n = read(fd, buffer, size - 1);
     
     if (n > 0) {
         buffer[n] = '\0';
-        // Rimuove il carattere '\n' o '\r' finale
+        // Remove trailing '\n' or '\r'
         buffer[strcspn(buffer, "\r\n")] = '\0'; 
     } else {
-        // Se non è stato letto nulla azzeriamo il buffer
+        // If nothing was read, clear the buffer
         buffer[0] = '\0';
     }
     
@@ -65,7 +65,7 @@ int ipc_read_line(int fd, char *buffer, size_t size) {
 }
 
 int ipc_send_message(int fd, const char *message) {
-    // Invia la stringa direttamente alla FIFO
+    // Sends the string directly to the FIFO
     ssize_t n = write(fd, message, strlen(message));
     if (n == -1) perror("write");
 
@@ -78,13 +78,13 @@ void ipc_remove_fifo(int id, DeviceType type){
     unlink(path_name);
 }
 
-// Genera un ritardo casuale da 1 a 3 secondi
+// Generates a random delay between 1 and 3 seconds
 void ipc_simulate_delay(void){
     int seconds = (rand() % 3) + 1;
     sleep(seconds);
 }
 
-// Notifica il controller tarmite FIFO principale
+// Notifies the controller through the main FIFO
 void ipc_send_controller(int status_code, const char *message){
     int fd = open(FIFO_CONTROLLER, O_WRONLY | O_NONBLOCK);
 

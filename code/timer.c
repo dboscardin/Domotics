@@ -10,7 +10,7 @@
 #include "device.h"
 #include "protocol.h"
 
-// Ritorna il nome testuale del dispositivo
+// Returns textual name of the device type
 static const char *get_device_type_name(DeviceType type) {
     switch (type) {
         case DEVICE_BULB:       return "Bulb";
@@ -35,8 +35,8 @@ TimerDevice create_timer_struct(int id){
     return timer;
 }
 
-// mirroring
-// timer non salva lo stato del figlio, ma lo interroga quando serve
+// Mirroring
+// Timer does not store child state, but queries it on demand
 static void get_timer_state(TimerDevice *timer, int fd_ascolto, char *out_state, size_t state_len) {
     if (timer->num_children == 0) {
         snprintf(out_state, state_len, "None");
@@ -50,14 +50,14 @@ static void get_timer_state(TimerDevice *timer, int fd_ascolto, char *out_state,
     int fd_child = ipc_open_for_writing(child_id, child_type);
     if (fd_child != -1) {
         char cmd[MAX_MSG_LEN];
-        // invio MIRROR
+        // Send MIRROR
         snprintf(cmd, sizeof(cmd), "%s %d %d", CMD_MIRROR, timer->id, DEVICE_TIMER);
         ipc_send_message(fd_child, cmd);
         close(fd_child);
     }
 
     int timeout = 1000; 
-    // aspetta la risposta del figlio
+    // Wait for reply from child
     while (timeout > 0) {
         char buf[4096];
         if (ipc_read_line(fd_ascolto, buf, sizeof(buf)) > 0) {
@@ -89,19 +89,19 @@ void timer_run(TimerDevice *timer){
     int fd_ascolto = ipc_open_for_listening(timer->id,DEVICE_TIMER);
     char buffer[MAX_MSG_LEN];
 
-    // impedisce al Timer di spammare comandi di accensione/spegnimento
+    // Prevents the Timer from spamming power on/off commands
     char last_triggered[6] = "";
 
     while(1){
 
 
-        //logica timer
+        // Timer logic
         time_t rawtime;
         struct tm *timeinfo;
         char current_time[6];
         time(&rawtime);
         timeinfo = localtime(&rawtime);
-        // Formatta l'ora attuale in stringa "HH:MM"
+        // Formats current time as "HH:MM" string
         strftime(current_time,sizeof(current_time), "%H:%M", timeinfo);
         
 
@@ -109,18 +109,18 @@ void timer_run(TimerDevice *timer){
             int child_id = timer->children[0].id;
             DeviceType child_type = timer->children[0].type;
 
-            //controllo il device
+            // Check the device type
             const char *labelOn = "power";
             const char *labelOff = "power";
-            const char *actionOff = "off"; // Azione standard di spegnimento
+            const char *actionOff = "off"; // Standard power-off action
             
             if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
                 labelOn = "open";
                 labelOff = "close";
-                actionOff = "on"; // Finestre e frighi si chiudono premendo il tasto close
+                actionOff = "on"; // Windows and fridges are closed by sending 'close on'
             }
 
-            // scatta inizio
+            // Begin schedule triggered
             if (strcmp(current_time, timer->begin) == 0 && strcmp(last_triggered, timer->begin) != 0) {
                 int fd_child = ipc_open_for_writing(child_id, child_type);
                 if (fd_child != -1) {
@@ -129,7 +129,7 @@ void timer_run(TimerDevice *timer){
                     ipc_send_message(fd_child, cmd); 
                     close(fd_child);
 
-                    //aspetto un risposta dal figlio
+                    // Wait for a response from the child
                     int msg = 0;
                     int timeout = 1000;
                     while (msg < 1 && timeout > 0) {
@@ -139,7 +139,7 @@ void timer_run(TimerDevice *timer){
                         else { usleep(10000); timeout--; }
                     }
 
-                    //notifico il controller
+                    // Notify the controller
                     char alert[MAX_MSG_LEN];
                     snprintf(alert, sizeof(alert), "\nTimer %d automatically switched its device on at %s", timer->id, current_time);
                     ipc_send_controller(STATUS_OK, alert);
@@ -148,7 +148,7 @@ void timer_run(TimerDevice *timer){
                 snprintf(last_triggered, sizeof(last_triggered), "%s", current_time);
 
             } 
-            // scatta fine
+            // End schedule triggered
             else if (strcmp(current_time, timer->end) == 0 && strcmp(last_triggered, timer->end) != 0) {
                 int fd_child = ipc_open_for_writing(child_id, child_type);
                 if (fd_child != -1) {
@@ -157,7 +157,7 @@ void timer_run(TimerDevice *timer){
                     ipc_send_message(fd_child, cmd);
                     close(fd_child);
 
-                    //aspetto un risposta dal figlio
+                    // Wait for a response from the child
                     int msg = 0;
                     int timeout = 1000;
                     while (msg < 1 && timeout > 0) {
@@ -167,7 +167,7 @@ void timer_run(TimerDevice *timer){
                         else { usleep(10000); timeout--; }
                     }
 
-                    //notifico il controller
+                    // Notify the controller
                     char alert[MAX_MSG_LEN];
                     snprintf(alert, sizeof(alert), "\nTimer %d automatically switched its device OFF at %s", timer->id, current_time);
                     ipc_send_controller(STATUS_OK, alert);
@@ -177,7 +177,7 @@ void timer_run(TimerDevice *timer){
         }
 
 
-        //gestine comandi IPC
+        // Handle IPC commands
         int bytes_letti = ipc_read_line(fd_ascolto,buffer,sizeof(buffer));
 
         if(bytes_letti > 0){
@@ -216,7 +216,7 @@ void timer_run(TimerDevice *timer){
                 if (sscanf(buffer, "%*s %d", &child_id) == 1){
                     if (timer->num_children > 0 && timer->children[0].id == child_id) {
 
-                        //avviso i figli di toglermi come padre
+                        // Notify child to remove this timer as parent
                         int fd_child = ipc_open_for_writing(child_id,timer->children[0].type);
                         if(fd_child != -1){
                             char cmd_unlink[MAX_MSG_LEN];
@@ -225,7 +225,7 @@ void timer_run(TimerDevice *timer){
                             close(fd_child);
                         }
 
-                        //rimuovo il figlio
+                        // Remove the child
                         timer->num_children = 0;
                         char msg[MAX_MSG_LEN];
                         snprintf(msg,sizeof(msg), "Unlink completed: Device %d removed from Timer.", child_id);
@@ -245,12 +245,12 @@ void timer_run(TimerDevice *timer){
                 int sender_id = -1, sender_type = -1;
                 int parsed = sscanf(buffer, "%*s %s %s %d %d", label, pos, &sender_id, &sender_type);
 
-                // Configurazione orari del Timer
+                // Configure Timer schedule
                 if (strcmp(label, "begin") == 0 || strcmp(label, "end") == 0) {
                     int h, m;
                     if (sscanf(pos, "%d:%d", &h, &m) == 2 && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
 
-                        //prendo l'ora attuale per vedere se è passato
+                        // Get current time to check if time has passed
                         time_t rawtime; struct tm *timeinfo; char current_time[6];
                         time(&rawtime); timeinfo = localtime(&rawtime);
                         strftime(current_time, sizeof(current_time), "%H:%M", timeinfo);
@@ -258,7 +258,7 @@ void timer_run(TimerDevice *timer){
                         bool valid = true;
                         char err_msg[MAX_MSG_LEN] = "";
 
-                        // validazione dati
+                        // Data validation
                         if (strcmp(pos, current_time) < 0) {
                             valid = false;
                             snprintf(err_msg, sizeof(err_msg), "Error: Time %s is in the past!", pos);
@@ -286,7 +286,7 @@ void timer_run(TimerDevice *timer){
                     }
                     
                     if (parsed >= 3) {
-                        //sblocco eventuale genitore
+                        // Unblock parent if any
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if(fd_parent != -1) {
                             char cmd[32];
@@ -297,12 +297,12 @@ void timer_run(TimerDevice *timer){
                     }
                 } 
                 else {
-                    //propagazione comandi al figlio di switch manuali
+                    // Forward manual switch commands to child
                     if (timer->num_children > 0) {
                         int child_id = timer->children[0].id;
                         DeviceType child_type = timer->children[0].type;
 
-                        //controllo il device
+                        // Check device type
                         const char *out_label = label;
                         const char *out_pos = pos;
                         if (child_type == DEVICE_WINDOW || child_type == DEVICE_FRIDGE) {
@@ -368,7 +368,7 @@ void timer_run(TimerDevice *timer){
                         close(fd_child);
                     }
 
-                    //aspetta che i figli vengano eliminati
+                    // Wait for children to be deleted
                     int deleted = 0;
                     int timeout = 1000;
                     while (deleted < 1 && timeout > 0) {
@@ -383,7 +383,7 @@ void timer_run(TimerDevice *timer){
                     }
                 }
 
-                //Rispondo a chi mi ha eliminato
+                // Respond to whoever requested deletion
                 if (sscanf(buffer, "%*s %d %d", &sender_id, &sender_type) == 2) {
                     int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                     if (fd_parent != -1) {
@@ -424,7 +424,7 @@ void timer_run(TimerDevice *timer){
                 if (timer->num_children == 0) {
                     offset += snprintf(message + offset, sizeof(message) - offset, "Linked Device: none\n");
                 } else {
-                    // stato reale
+                    // Real state
                     char child_state[64];
                     get_timer_state(timer, fd_ascolto, child_state, sizeof(child_state));
 
@@ -469,7 +469,7 @@ void timer_run(TimerDevice *timer){
                 ipc_send_controller(ERR_INVALID_COMMAND,"Timer unknown command.");
             }
         } else{
-            // se la fifo è vuota sospendo il processo per 50ms per evitare di consumare il 100% di CPU
+            // If the FIFO is empty, sleep for 50ms to avoid consuming 100% CPU
             usleep(50000);
         }
     }

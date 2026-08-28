@@ -10,29 +10,29 @@ ARGS ?=
 
 .PHONY: all build clean run
 
-# defaul target
+# Default target
 all: build
 
-# costruisce l'eseguibile principale
+# Builds the main executable
 build: $(TARGET)
 
-# Collega object files nell'exe finale
-# $@ --> target corrente (domotics)
-# $^ --> tutte le dependencies
+# Links object files into the final executable
+# $@ --> current target (domotics)
+# $^ --> all dependencies
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-# Compila ogni file .c nel corrispondente .o
-# $< --> prima dependency (main.c)
-# $@ --> file .o da riprodurre
+# Compiles each .c file into the corresponding .o file
+# $< --> first dependency (main.c)
+# $@ --> .o file to produce
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# per partire da uno stato pulito e restituire eventuali errori
+# To start from a clean state and clean up any artifacts
 clean:
 	rm -f $(OBJS) $(TARGET)
 	rm -f /tmp/domotica_* 2>/dev/null || true
-# prima compila se serve, poi esegue il programma
+# Compiles first if needed, then runs the program
 run: build
 		@if [ -n "$(ARGS)" ]; then \
 		echo "============================================="; \

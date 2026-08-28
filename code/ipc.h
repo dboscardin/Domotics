@@ -16,7 +16,7 @@ void ipc_remove_fifo(int id, DeviceType type);
 
 void ipc_simulate_delay(void);
 
-// Funzione per inviare comodamente codice di stato al Controller
+// Helper function to send a status code to the Controller
 void ipc_send_controller(int status_code, const char *message);
 
 #endif

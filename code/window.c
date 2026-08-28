@@ -21,15 +21,15 @@ Window create_window_struct(int id) {
 
 void window_run(Window *window) {
 
-    // Genera un valore casuale basato sul PID 
+    // Generate a unique random seed based on PID 
     srand(time(NULL) ^ getpid());
 
-    // apro la fifo in sola lettura
+    // Open the FIFO for reading
     int fd = ipc_open_for_listening(window->id, DEVICE_WINDOW);
     char buffer[MAX_MSG_LEN];
     while(1) {
 
-        //leggo i messaggi dalla FIFO
+        // Read messages from the FIFO
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
 
@@ -39,7 +39,7 @@ void window_run(Window *window) {
                 int sender_type = -1;
                 
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
-                    //se arriva da un genitore
+                    // If received from a parent
                     int fd_parent = ipc_open_for_writing(sender,(DeviceType)sender_type);
                     if(fd_parent != -1){
                         char message[32];
@@ -48,7 +48,7 @@ void window_run(Window *window) {
                         close(fd_parent);
                     }
                 } else {
-                    //se arriva dal controller
+                    // If received from the controller
                     char message[MAX_MSG_LEN];
                     snprintf(message ,sizeof(message),"Device Window %d deleted.", window->id );
                     ipc_send_controller(STATUS_OK, message);
@@ -59,7 +59,7 @@ void window_run(Window *window) {
             }
             // SWITCH
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
-                //delay
+                // Delay
                 ipc_simulate_delay();
 
                 bool handled = false;
@@ -77,7 +77,7 @@ void window_run(Window *window) {
                         }
                         window->is_open = true;
                     } else if(strcmp(pos, "off") == 0) {
-                        // Switch a molla: ritorna automaticamente a off
+                        // Momentary switch: automatically resets to off
                     } else {
                         valid_pos = false;
                     }
@@ -86,14 +86,14 @@ void window_run(Window *window) {
                 else if(strcmp(label, "close") == 0) {
                     if (strcmp(pos, "on") == 0) {
                         if (window->tracking) {
-                            //la finestra viene chiusa 
+                            // The window is closed 
                             long elapsed = compute_elapsed_seconds(&window->active_since);
                             window->time += elapsed;
                             window->tracking = false;
                         }
                         window->is_open = false;
                     } else if (strcmp(pos, "off") == 0) {
-                        // Switch a molla: ritorna automaticamente a off
+                        // Momentary switch: automatically resets to off
                     } else {
                         valid_pos = false;
                     }
@@ -102,7 +102,7 @@ void window_run(Window *window) {
 
                 if (handled) {
                     if(parsed >= 4){
-                        // Il comando viene da un genitore
+                        // The command comes from a parent
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if(fd_parent != -1){
                             char message[MAX_MSG_LEN];
@@ -111,7 +111,7 @@ void window_run(Window *window) {
                             close(fd_parent); 
                         }
                     } else {
-                        // Comando dal controller
+                        // Command from the controller
                         char message[MAX_MSG_LEN];
                         if(valid_pos) {
                             snprintf(message, sizeof(message), "Window %d, %s set to: %s", window->id, label, pos);
@@ -122,9 +122,9 @@ void window_run(Window *window) {
                         }
                     }
                 } else {
-                    // Se la label non è valida
+                    // If the label is invalid
                     if (parsed >= 4) {
-                        //sblocco il genitore
+                        // Unblock parent
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
                             char message[MAX_MSG_LEN];
@@ -169,10 +169,10 @@ void window_run(Window *window) {
                 int sender_id = -1;
                 int sender_type = -1;
 
-                //estraggo id del parent
+                // Extract parent ID
                 if(sscanf(buffer, "%*s %d %d", &sender_id, &sender_type) == 2){
 
-                    //apro fifo parent in scrittura
+                    // Open parent FIFO for writing
                     int fd_sender = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
 
                     if(fd_sender != -1 ){
@@ -188,7 +188,7 @@ void window_run(Window *window) {
                 ipc_send_controller(ERR_INVALID_COMMAND, " Window unknown command.");
             }
         } else {
-            // se la fifo è vuota sospendo il processo per 50ms per evitare di consumare il 100% di CPU
+            // If the FIFO is empty, sleep for 50ms to avoid consuming 100% CPU
             usleep(50000);
         }
     }
