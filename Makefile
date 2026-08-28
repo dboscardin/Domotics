@@ -6,7 +6,7 @@ TARGET = domotics
 SRCS = code/main.c code/controller.c code/bulb.c code/window.c code/fridge.c code/ipc.c code/hub.c code/device.c code/timer.c
 OBJS = $(SRCS:.c=.o)
 
-ARGS ?=
+ARGS = scenario.txt
 
 .PHONY: all build clean run
 
@@ -34,12 +34,7 @@ clean:
 	rm -f /tmp/domotica_* 2>/dev/null || true
 # Compiles first if needed, then runs the program
 run: build
-		@if [ -n "$(ARGS)" ]; then \
 		echo "============================================="; \
 		echo " Avvio domotics con scenario: $(ARGS)"; \
 		echo "============================================="; \
 		cat $(ARGS) - | ./$(TARGET); \
-	else \
-		echo "Avvio normale..."; \
-		./$(TARGET); \
-	fi
