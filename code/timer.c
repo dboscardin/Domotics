@@ -10,8 +10,7 @@
 #include "device.h"
 #include "protocol.h"
 
-#define BUFFER_SIZE 256
-
+// Ritorna il nome testuale del dispositivo
 static const char *get_device_type_name(DeviceType type) {
     switch (type) {
         case DEVICE_BULB:       return "Bulb";
@@ -36,6 +35,8 @@ TimerDevice create_timer_struct(int id){
     return timer;
 }
 
+// mirroring
+// timer non salva lo stato del figlio, ma lo interroga quando serve
 static void get_timer_state(TimerDevice *timer, int fd_ascolto, char *out_state, size_t state_len) {
     if (timer->num_children == 0) {
         snprintf(out_state, state_len, "None");
@@ -49,12 +50,14 @@ static void get_timer_state(TimerDevice *timer, int fd_ascolto, char *out_state,
     int fd_child = ipc_open_for_writing(child_id, child_type);
     if (fd_child != -1) {
         char cmd[MAX_MSG_LEN];
+        // invio MIRROR
         snprintf(cmd, sizeof(cmd), "%s %d %d", CMD_MIRROR, timer->id, DEVICE_TIMER);
         ipc_send_message(fd_child, cmd);
         close(fd_child);
     }
 
     int timeout = 1000; 
+    // aspetta la risposta del figlio
     while (timeout > 0) {
         char buf[4096];
         if (ipc_read_line(fd_ascolto, buf, sizeof(buf)) > 0) {
@@ -86,18 +89,19 @@ void timer_run(TimerDevice *timer){
     int fd_ascolto = ipc_open_for_listening(timer->id,DEVICE_TIMER);
     char buffer[MAX_MSG_LEN];
 
-    char last_triggered[6] = ""; //serve per non mandare il comando di switch un sacco di volte e far ricordare al timer che l'ha già mandato
+    // impedisce al Timer di spammare comandi di accensione/spegnimento
+    char last_triggered[6] = "";
 
     while(1){
 
 
         //logica timer
-
         time_t rawtime;
         struct tm *timeinfo;
         char current_time[6];
         time(&rawtime);
         timeinfo = localtime(&rawtime);
+        // Formatta l'ora attuale in stringa "HH:MM"
         strftime(current_time,sizeof(current_time), "%H:%M", timeinfo);
         
 
@@ -116,6 +120,7 @@ void timer_run(TimerDevice *timer){
                 actionOff = "on"; // Finestre e frighi si chiudono premendo il tasto close
             }
 
+            // scatta inizio
             if (strcmp(current_time, timer->begin) == 0 && strcmp(last_triggered, timer->begin) != 0) {
                 int fd_child = ipc_open_for_writing(child_id, child_type);
                 if (fd_child != -1) {
@@ -143,6 +148,7 @@ void timer_run(TimerDevice *timer){
                 snprintf(last_triggered, sizeof(last_triggered), "%s", current_time);
 
             } 
+            // scatta fine
             else if (strcmp(current_time, timer->end) == 0 && strcmp(last_triggered, timer->end) != 0) {
                 int fd_child = ipc_open_for_writing(child_id, child_type);
                 if (fd_child != -1) {
@@ -171,11 +177,12 @@ void timer_run(TimerDevice *timer){
         }
 
 
+        //gestine comandi IPC
         int bytes_letti = ipc_read_line(fd_ascolto,buffer,sizeof(buffer));
 
         if(bytes_letti > 0){
 
-            //link
+            // LINK
             if(strncmp(buffer, CMD_LINK_CHILD, strlen(CMD_LINK_CHILD)) == 0){
                 ipc_simulate_delay();
                 int child_id;
@@ -194,7 +201,7 @@ void timer_run(TimerDevice *timer){
                     }
                 }
             }
-            //setparent
+            // SET_PARENT
             else if(strncmp(buffer, CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
                 int p_id;
                 if (sscanf(buffer, "%*s %d", &p_id) == 1){ 
@@ -202,7 +209,7 @@ void timer_run(TimerDevice *timer){
                 }
                 continue;
             }
-            //unlink
+            // UNLINK
             else if(strncmp(buffer, CMD_UNLINK_CHILD, strlen(CMD_UNLINK_CHILD)) == 0){
                 ipc_simulate_delay();
                 int child_id;
@@ -231,18 +238,19 @@ void timer_run(TimerDevice *timer){
                     }
                 }
             }
-            //switch
+            // SWITCH
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0){
                 ipc_simulate_delay();
                 char label[32], pos[32];
                 int sender_id = -1, sender_type = -1;
                 int parsed = sscanf(buffer, "%*s %s %s %d %d", label, pos, &sender_id, &sender_type);
 
+                // Configurazione orari del Timer
                 if (strcmp(label, "begin") == 0 || strcmp(label, "end") == 0) {
                     int h, m;
                     if (sscanf(pos, "%d:%d", &h, &m) == 2 && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
 
-                        //prendo lora attuale per vedere se è passato
+                        //prendo l'ora attuale per vedere se è passato
                         time_t rawtime; struct tm *timeinfo; char current_time[6];
                         time(&rawtime); timeinfo = localtime(&rawtime);
                         strftime(current_time, sizeof(current_time), "%H:%M", timeinfo);
@@ -250,7 +258,7 @@ void timer_run(TimerDevice *timer){
                         bool valid = true;
                         char err_msg[MAX_MSG_LEN] = "";
 
-
+                        // validazione dati
                         if (strcmp(pos, current_time) < 0) {
                             valid = false;
                             snprintf(err_msg, sizeof(err_msg), "Error: Time %s is in the past!", pos);
@@ -278,6 +286,7 @@ void timer_run(TimerDevice *timer){
                     }
                     
                     if (parsed >= 3) {
+                        //sblocco eventuale genitore
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if(fd_parent != -1) {
                             char cmd[32];
@@ -288,6 +297,7 @@ void timer_run(TimerDevice *timer){
                     }
                 } 
                 else {
+                    //propagazione comandi al figlio di switch manuali
                     if (timer->num_children > 0) {
                         int child_id = timer->children[0].id;
                         DeviceType child_type = timer->children[0].type;
@@ -340,7 +350,7 @@ void timer_run(TimerDevice *timer){
                 }
 
             }
-            //delete
+            // DELETE
             else if(strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
 
                 int sender_id = -1;
@@ -396,7 +406,7 @@ void timer_run(TimerDevice *timer){
                 exit(0);
 
             }
-            //info
+            // INFO
             else if(strncmp(buffer, CMD_INFO, strlen(CMD_INFO)) == 0){
                 char message[MAX_MSG_LEN];
                 int offset = 0;
@@ -414,6 +424,7 @@ void timer_run(TimerDevice *timer){
                 if (timer->num_children == 0) {
                     offset += snprintf(message + offset, sizeof(message) - offset, "Linked Device: none\n");
                 } else {
+                    // stato reale
                     char child_state[64];
                     get_timer_state(timer, fd_ascolto, child_state, sizeof(child_state));
 
@@ -429,7 +440,7 @@ void timer_run(TimerDevice *timer){
                 ipc_send_controller(STATUS_OK, message);
 
             }
-            //Mirror
+            // MIRROR
             else if (strncmp(buffer, CMD_MIRROR, strlen(CMD_MIRROR)) == 0) {
                 int p_sender_id;
                 int p_sender_type;
@@ -445,7 +456,9 @@ void timer_run(TimerDevice *timer){
                         close(fd_parent);
                     }
                 }
-            } else if (strncmp(buffer, CMD_CHILD_DIED, strlen(CMD_CHILD_DIED)) == 0) {
+            }
+            // CHILD_DIED 
+            else if (strncmp(buffer, CMD_CHILD_DIED, strlen(CMD_CHILD_DIED)) == 0) {
                 int dead_id;
                 if (sscanf(buffer, "%*s %d", &dead_id) == 1) {
                     if (timer->num_children > 0 && timer->children[0].id == dead_id) {
@@ -456,6 +469,7 @@ void timer_run(TimerDevice *timer){
                 ipc_send_controller(ERR_INVALID_COMMAND,"Timer unknown command.");
             }
         } else{
+            // se la fifo è vuota sospendo il processo per 50ms per evitare di consumare il 100% di CPU
             usleep(50000);
         }
     }

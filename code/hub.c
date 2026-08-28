@@ -3,13 +3,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
-
 #include "hub.h"
 #include "ipc.h"
 #include "device.h"
 #include "protocol.h"
-
-#define BUFFER_SIZE 256
 
 static const char *get_device_type_name(DeviceType type) {
     switch (type) {
@@ -75,6 +72,8 @@ int hub_remove_child(HubDevice *hub, int child_id){
     return STATUS_OK;
 }
 
+// stato in tempo reale
+// MIRRORING
 static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHILDREN][64], char *overall_state, size_t state_len) {
     if (hub->num_children == 0) {
         snprintf(overall_state, state_len, "None");
@@ -150,6 +149,8 @@ static void get_state(HubDevice *hub, int fd_ascolto, char child_states[MAX_CHIL
 }
 
 void hub_run(HubDevice *hub){
+
+    //generazioen valore casuale
     srand(time(NULL) ^ getpid());
 
     // Apertura FIFO ascolto
@@ -163,7 +164,7 @@ void hub_run(HubDevice *hub){
 
         if (bytes_letti > 0) {
 
-            //link
+            // LINK
             if (strncmp(buffer, CMD_LINK_CHILD, strlen(CMD_LINK_CHILD)) == 0) {
                 ipc_simulate_delay();
                 int child_id;
@@ -190,7 +191,7 @@ void hub_run(HubDevice *hub){
                 }
             
             } 
-            //setparent
+            // SET_PARENT
             else if(strncmp(buffer, CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
                 int p_id;
                 if (sscanf(buffer, "%*s %d", &p_id) == 1) {
@@ -198,7 +199,7 @@ void hub_run(HubDevice *hub){
                 }
                 continue;
             }
-            //unlink
+            // UNLINK
             else if(strncmp(buffer, CMD_UNLINK_CHILD, strlen(CMD_UNLINK_CHILD)) == 0){
                 ipc_simulate_delay();
                 int child_id;
@@ -239,7 +240,7 @@ void hub_run(HubDevice *hub){
                 } else {
                     fprintf(stderr, "Error: invalid UNLINK format.\n");
                 }
-            //delete        
+            // DELETE        
             } else if(strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0) {
 
                 int sender_id = -1;
@@ -293,7 +294,7 @@ void hub_run(HubDevice *hub){
                 close(fd_ascolto);
                 exit(0);
             }
-            //switch
+            // SWITCH 
             else if (strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
                 ipc_simulate_delay();
 
@@ -362,7 +363,7 @@ void hub_run(HubDevice *hub){
                     ipc_send_controller(STATUS_OK, message);
                 }
             }
-            //INFO
+            // INFO
             else if (strncmp(buffer, CMD_INFO, strlen(CMD_INFO)) == 0) {
 
                 char message[MAX_MSG_LEN];
@@ -402,7 +403,7 @@ void hub_run(HubDevice *hub){
                 ipc_send_controller(STATUS_OK,message);
 
             } 
-            //Mirror
+            // MIRROR
             else if (strncmp(buffer, CMD_MIRROR, strlen(CMD_MIRROR)) == 0) {
                 int p_sender_id;
                 int p_sender_type;
@@ -419,7 +420,9 @@ void hub_run(HubDevice *hub){
                         close(fd_parent);
                     }
                 }
-            } else if (strncmp(buffer, CMD_CHILD_DIED, strlen(CMD_CHILD_DIED)) == 0) {
+            }
+            // CHILD_DIED 
+            else if (strncmp(buffer, CMD_CHILD_DIED, strlen(CMD_CHILD_DIED)) == 0) {
                 int dead_id;
                 if (sscanf(buffer, "%*s %d", &dead_id) == 1) {
                     hub_remove_child(hub, dead_id);
@@ -431,7 +434,8 @@ void hub_run(HubDevice *hub){
             
 
         } else {
-            usleep(50000); // 50ms
+            // se la fifo è vuota sospendo il processo per 50ms per evitare di consumare il 100% di CPU
+            usleep(50000);
         }
     }
 

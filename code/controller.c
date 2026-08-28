@@ -24,21 +24,27 @@
 #define MAX_DEVICES 50
 #define MAX_TOKENS 10
 
-//veriabile globale per controllare il ciclo di un thread
+// Variabili globali
 static volatile int running = 1;
+
+//mutex e condition per bloccare la shell in attesa delle risposte dei dispositivi
 static pthread_mutex_t mutex;
 static pthread_cond_t sync_cond;
 static volatile bool response_received = false;
 static volatile int last_status_code = STATUS_OK;
 
+//stato interruzione generale
 static bool controller_state = true;
 
 static DeviceInfo devices[MAX_DEVICES];
-static int device_count = 0;    //conta dispositivi attuali
-//parte da 1 perchè 0 è riservato al controller
-static int curr_id = 1;         //assegna un id che non decrementa all'eliminazione
-//devo averne due per evitare conflitti causa eliminazione
+//conta dispositivi attuali
+static int device_count = 0;   
 
+//assegna un id che non decrementa all'eliminazione
+//parte da 1 perchè 0 è riservato al controller
+static int curr_id = 1;         
+
+// definizioni funzioni
 static void devices_list(void);
 static int add_device(char* device);
 static int parse_id(const char *charId);
@@ -55,6 +61,7 @@ static int unlink_device(int child_id,int parent_id);
 static void remove_device_from_array(int id);
 static int count_direct_children(int parent_id);
 
+// serve per stampare il tipo di device
 static const char *device_type_to_string(DeviceType type) {
     switch (type) {
         case DEVICE_BULB:       return "Bulb";
@@ -91,16 +98,18 @@ static void cleanup_all_devices(void) {
             close(devices[i].fifo_fd);
         }
         ipc_remove_fifo(devices[i].id, devices[i].type);
+        // Invia segnale di terminazione a tutti i figli
         kill(devices[i].pid, SIGTERM);
         waitpid(devices[i].pid, NULL, 0);
     }
     device_count = 0;
+    // Distrugge la Pipe del Controller
     unlink(FIFO_CONTROLLER);
     pthread_mutex_destroy(&mutex);
     pthread_cond_destroy(&sync_cond);
 }
 
-// Gestione della chiusura tramite Ctrl+C
+// Handler Ctrl+C
 static void handle_sigint(int sig) {
     (void)sig;
     running = 0;
@@ -118,6 +127,7 @@ static void handle_sigchld(int sig) {
     int status;
     pid_t pid;
 
+    //WNOHANG permette di svuotare tutti gli Zombie accodati senza bloccare il Controller
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
         for (int i = 0; i < device_count; i++) {
             if (devices[i].id == CONTROLLER_ID) {
@@ -159,19 +169,22 @@ static void handle_sigchld(int sig) {
                 }
                 device_count--;
                 break;
+                //passo al prossimo zombie se esiste
             }
         }
     }
 }
 
+// legge l'input da shell
 static int read_line(char *buffer, size_t size) {
    while (1) {
         if (fgets(buffer, size, stdin) == NULL) {
+            // Se un device figlio muore, SIGCHLD interrompe la fgets sollevando l'errore EINTR.
             if (errno == EINTR) {
                 if(!running){
-                    return 0;
+                    return 0;   // Il sistema si sta spegnendo
                 }
-                clearerr(stdin);
+                clearerr(stdin);    // Pulisce lo stream e ripete la lettura
                 errno = 0;
                 continue;
             }
@@ -239,8 +252,9 @@ static int add_device(char* device) {
         return ERR_RESOURCE_ERROR;
     }
     
+    // processo figlio
     if(pid == 0) {
-        signal(SIGINT,SIG_IGN);
+        signal(SIGINT,SIG_IGN); // ignora il ctrl+c
         close(STDIN_FILENO); // Chiude l'input tastiera per il figlio
         switch (type) {
             case DEVICE_BULB:
@@ -264,13 +278,15 @@ static int add_device(char* device) {
         _exit(0);
     }
 
+    //processo padre
     devices[device_count].id = curr_id;
     devices[device_count].pid = pid;
     devices[device_count].type = type;
     devices[device_count].parent_id = CONTROLLER_ID;
     devices[device_count].fifo_fd = -1;
 
-    usleep(50000); //50ms
+    //piccola pausa per creare la fifo
+    usleep(50000);
 
     printf("%s", device_type_to_string(type));    
     printf(" created successfully!\nid=%d, pid=%d\n", curr_id, pid);
@@ -309,7 +325,7 @@ static bool creates_cycle(int child_id, int parent_id) {
 
     while(curr_id != -1) {
         if(curr_id == child_id) {
-            return true;
+            return true; //trovato un ciclo
         }
 
         int idx = find_device_by_id(curr_id);
@@ -321,6 +337,7 @@ static bool creates_cycle(int child_id, int parent_id) {
         curr_id = devices[idx].parent_id;
 
         steps++;
+        //timeout per sicurezza
         if(steps > device_count) {
             break;
         }
@@ -381,6 +398,7 @@ static int link_devices(int child_id, int parent_id) {
         char msg_parent[64];
         snprintf(msg_parent, sizeof(msg_parent), "%s %d %d", CMD_LINK_CHILD, child_id, devices[child_idx].type);
 
+        //sincronizzazione
         pthread_mutex_lock(&mutex);
         response_received = false;
 
@@ -449,6 +467,7 @@ static int unlink_device(int child_id,int parent_id){
         ipc_send_message(fd, msg);
         close(fd);
 
+        //blocca la shell in attesa della disconnesione avvenuta
         while(!response_received){
             pthread_cond_wait(&sync_cond,&mutex);
         }
@@ -497,6 +516,7 @@ static int remove_device(int id) {
         unlink_device(id, devices[index].parent_id);
 
         //per evitare race condition
+        //lascio al figlio il tempo materiale di leggere l'UNLINK
         usleep(100000);
     }
 
@@ -595,6 +615,7 @@ static bool switch_check(char *tokens[], int count) {
                     return true;
                 }
 
+                //verifica che sia un numero intero
                 char *endptr;
                 strtol(tokens[3], &endptr, 10);
                 return endptr != tokens[3] && *endptr == '\0';
@@ -721,6 +742,7 @@ static void commands(void) {
     printf("quit: To quit the program.\n");
 }
 
+//Sta perennemente in attesa sulla FIFO del controller
 static void *listener_thread(void *arg){
 
     (void)arg;
@@ -747,6 +769,8 @@ static void *listener_thread(void *arg){
         if(n > 0){
             controller_buf[n] = '\0';
 
+            //gestione manual override tramite bash
+            // INFO
             if (strncmp(controller_buf, CMD_INFO, strlen(CMD_INFO)) == 0) {
                 pthread_mutex_lock(&mutex);
                 printf("\n\r\033[KManual Override! Requesting Controller Info...");
@@ -756,6 +780,7 @@ static void *listener_thread(void *arg){
                 pthread_mutex_unlock(&mutex);
                 continue;
             }
+            // SWITCH
             else if (strncmp(controller_buf, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
                 char cmd[32], label[32], pos[32];
                 if (sscanf(controller_buf, "%s %s %s", cmd, label, pos) >= 3) {
@@ -772,6 +797,7 @@ static void *listener_thread(void *arg){
                 }
                 continue;
             }
+            // DELETE
             else if (strncmp(controller_buf, CMD_DELETE, strlen(CMD_DELETE)) == 0) {
                 pthread_mutex_lock(&mutex);
                 printf("\n\r\033[KManual Override! Error: Cannot delete the Controller.\n");
@@ -781,13 +807,14 @@ static void *listener_thread(void *arg){
                 continue;
             }
             
+            // Estrazione dello status_code e del messaggio
             int code = 0;
             if (sscanf(controller_buf, "%d", &code) == 1) {
                 last_status_code = code;
             }
 
             if (strncmp(controller_buf, "MSG", 3) == 0) {
-                // Messaggio interno di ack, non stampare a schermo
+                // Messaggio interno, non stampare a schermo
                 continue;
             }
 
@@ -803,6 +830,7 @@ static void *listener_thread(void *arg){
             printf("%s\n", message);
             fflush(stdout);
 
+            // Sblocca la Shell
             pthread_mutex_lock(&mutex);
             response_received = true;
             pthread_cond_signal(&sync_cond);
@@ -822,10 +850,11 @@ void controller_run(void) {
     //evita la chiusura del controller quando si invia un comando a un device morto
     signal(SIGPIPE, SIG_IGN);
 
-    // Configura SIGCHLD con SA_RESTART per catturare eliminazioni da file .sh
+    // Configura SIGCHLD per evitare processi zombie
     struct sigaction sa_child;
     sa_child.sa_handler = handle_sigchld;
     sigemptyset(&sa_child.sa_mask);
+    // SA_RESTART riavvia le call interrotte se possibile. SA_NOCLDSTOP ignora i segnali di stop/continue. 
     sa_child.sa_flags = SA_RESTART | SA_NOCLDSTOP;
     sigaction(SIGCHLD, &sa_child, NULL);
 
@@ -892,12 +921,14 @@ void controller_run(void) {
         }
 
         //evita race condition
+        // se un figlio morisse proprio adesso, la funzione asincrona handle_sigchld 
+        // modificherebbe `device_count` e `devices`, causando un crash
         sigset_t mask, oldmask;
         sigemptyset(&mask);
         sigaddset(&mask, SIGCHLD);
         sigprocmask(SIG_BLOCK, &mask, &oldmask);
 
-        //switch non si può fare perché non funziona con le stringhe (solo numeri e char)
+        // comandi testuali
         if(strcmp(tokens[0], "list") == 0) {
             devices_list();
         }

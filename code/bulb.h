@@ -6,10 +6,10 @@
 typedef struct {
     int id;
     int parent_id;
-    bool power;
-    long time;
+    bool power;                     // stato della lampadina
+    long time;                      // tempo totale di accensione accumulato
     struct timespec active_since;   // timestamp di quando è iniziato lo stato attivo
-    bool tracking;                  // true se il timer è attivo
+    bool tracking;                  // flag per indicare se stiamo attualmente contando il tempo
 
 } Bulb;
 

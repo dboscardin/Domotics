@@ -8,8 +8,6 @@
 #include "device.h"
 #include "protocol.h"
 
-#define BUFFER_SIZE 256
-
 Fridge create_fridge_struct(int id) {
     Fridge fridge = {
         .id = id,
@@ -27,21 +25,25 @@ Fridge create_fridge_struct(int id) {
 
 void fridge_run(Fridge *fridge) {
 
+    //genero un valore unico casuale 
     srand(time(NULL) ^ getpid());
 
+    // apro la fifo
     int fd = ipc_open_for_listening(fridge->id, DEVICE_FRIDGE);
     char buffer[MAX_MSG_LEN];
     
     while(1) {
+        // leggo dalla FIFO
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
 
-            //delete
+            // DELETE
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
                 int sender = -1;
                 int sender_type = -1;
                 
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
+                    // dal genitore
                     int fd_parent = ipc_open_for_writing(sender,(DeviceType)sender_type);
                     if(fd_parent != -1){
                         char message[32];
@@ -50,6 +52,7 @@ void fridge_run(Fridge *fridge) {
                         close(fd_parent);
                     }
                 } else {
+                    // dal controller
                     char message[MAX_MSG_LEN];
                     snprintf(message, sizeof(message),"Device Fridge %d deleted.", fridge->id );
                     ipc_send_controller(STATUS_OK, message);
@@ -58,10 +61,11 @@ void fridge_run(Fridge *fridge) {
                 close(fd);
                 exit(0);
             }
-            //Switch
+            // SWITCH
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
                 //delay
                 ipc_simulate_delay();
+
                 bool handled = false;
                 bool valid_pos = true;
                 bool already_responded = false;
@@ -70,6 +74,7 @@ void fridge_run(Fridge *fridge) {
                 int sender_type = -1;
                 int parsed = sscanf(buffer, "%*s %s %s %d %d", label, pos, &sender_id, &sender_type);
 
+                // open
                 if(strcmp(label, "open") == 0) {
                     if (strcmp(pos, "on") == 0) {
                         if (!fridge->tracking) {
@@ -89,6 +94,7 @@ void fridge_run(Fridge *fridge) {
                     }
                     handled = true;
                 }
+                // close
                 if(strcmp(label, "close") == 0) {
                     if (strcmp(pos, "on") == 0) {
                         if (fridge->tracking) {
@@ -108,7 +114,7 @@ void fridge_run(Fridge *fridge) {
                     }
                     handled = true;
                 }
-                //aggiungere chiusura automatica
+                // delay
                 else if(strcmp(label, "delay") == 0) {
                     int int_pos = atoi(pos);
                     if (int_pos >= 0) {
@@ -118,6 +124,7 @@ void fridge_run(Fridge *fridge) {
                     }
                     handled = true;
                 }
+                // percentuale
                 else if(strcmp(label, "perc") == 0) {
                     //comando da un genitore/controller
                     char manual_flag[16] = "";
@@ -138,6 +145,7 @@ void fridge_run(Fridge *fridge) {
                         handled = true;
                         already_responded = true;
                     } else {
+                        //acceso autorizzato tramite bash
                         int int_pos = atoi(pos);
                         if (int_pos >= 0 && int_pos <= 100) {
                             fridge->perc = int_pos;
@@ -148,6 +156,7 @@ void fridge_run(Fridge *fridge) {
                         already_responded = true;
                     }
                 }
+                // temp
                 else if(strcmp(label, "temp") == 0) {
                     int int_pos = atoi(pos);
                     if (int_pos >= -10 && int_pos <= 50) {
@@ -157,6 +166,7 @@ void fridge_run(Fridge *fridge) {
                     }
                     handled = true;
                 }
+                // thermostat
                 else if(strcmp(label, "thermostat") == 0) {
                     //comando da un genitore/controller
                     char manual_flag[16] = "";
@@ -187,6 +197,7 @@ void fridge_run(Fridge *fridge) {
                         already_responded = true;
                     }
                 }
+                // invio conferme di switch
                 if(handled && !already_responded){
                     if(parsed >= 4){
                         //il comando viene da un genitore
@@ -224,7 +235,7 @@ void fridge_run(Fridge *fridge) {
                     }
                 }
             }
-            //info
+            // INFO
             else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){
                 char message[MAX_MSG_LEN];
                 char parent[32];
@@ -248,11 +259,11 @@ void fridge_run(Fridge *fridge) {
                 fridge->id,fridge->is_open ? "Open" : "Closed", total_time, fridge->delay, fridge->perc, fridge->temp, fridge->thermostat);
                 ipc_send_controller(STATUS_OK, message);
             }
-            //set_parent
+            // SET_PARENT
             else if(strncmp(buffer , CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
                 handle_set_parent(&fridge->parent_id, buffer);
             }
-            //mirror
+            // MIRROR
             else if(strncmp(buffer , CMD_MIRROR, strlen(CMD_MIRROR)) == 0){
 
                 int sender_id = -1;
@@ -276,7 +287,11 @@ void fridge_run(Fridge *fridge) {
             else {
                 ipc_send_controller(ERR_INVALID_COMMAND, "Fridge unknown command.");
             }
-        } else if(fridge->tracking) {
+        } 
+        // Logica del frigo
+        else if(fridge->tracking) {
+
+            //delay
             long elapsed = compute_elapsed_seconds(&fridge->active_since);
             if (elapsed >= fridge->delay) {
                 fridge->time += elapsed;
@@ -284,6 +299,8 @@ void fridge_run(Fridge *fridge) {
                 fridge->is_open = false;
                 ipc_send_controller(STATUS_OK, "Fridge auto-closed after delay.");
             }
+
+            //temperatura
             if (fridge->temp != fridge->thermostat) {
                 if (fridge->temp < fridge->thermostat) {
                     usleep(1000);
@@ -294,7 +311,8 @@ void fridge_run(Fridge *fridge) {
                 }
             }
         } else {
-            usleep(50000); // il processo consuma meno risorse
+            // se la fifo è vuota sospendo il processo per 50ms per evitare di consumare il 100% di CPU
+            usleep(50000);
         }
     }
     close(fd);

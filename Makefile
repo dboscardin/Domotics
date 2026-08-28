@@ -10,9 +10,10 @@ ARGS ?=
 
 .PHONY: all build clean run
 
+# defaul target
 all: build
 
-# quando eseguiamo make, prima controlla se target è eseguibile, sennò lo builda
+# costruisce l'eseguibile principale
 build: $(TARGET)
 
 # Collega object files nell'exe finale
@@ -27,11 +28,11 @@ $(TARGET): $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-#per partire da uno stato pulito e restituire eventuali errori
+# per partire da uno stato pulito e restituire eventuali errori
 clean:
 	rm -f $(OBJS) $(TARGET)
 	rm -f /tmp/domotica_* 2>/dev/null || true
-#prima compila se serve, poi esegue il programma
+# prima compila se serve, poi esegue il programma
 run: build
 		@if [ -n "$(ARGS)" ]; then \
 		echo "============================================="; \
@@ -42,12 +43,3 @@ run: build
 		echo "Avvio normale..."; \
 		./$(TARGET); \
 	fi
-
-# A MAekfile contains
-# A list of source files
-# A list of object files (compiled source files)
-# A list of dependencies, that specify which files depend on which other files
-# A set of rules to compile and link the program
-
-# run 'make' nel terminale per compilare
-# solitamente si esegue da solo ma si possono specificare determinate regole (make clean)

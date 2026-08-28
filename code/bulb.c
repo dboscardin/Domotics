@@ -9,8 +9,6 @@
 #include "protocol.h"
 #include "device.h"
 
-#define BUFFER_SIZE 256
-
 Bulb create_bulb_struct(int id) {
     Bulb bulb = {
         .id = id,
@@ -25,22 +23,27 @@ Bulb create_bulb_struct(int id) {
 
 void bulb_run(Bulb *bulb) {
 
+    // genero un valore casuale unico basato sul PID
     srand(time(NULL) ^ getpid());
 
+    // apro la fifo in lettura
     int fd = ipc_open_for_listening(bulb->id, DEVICE_BULB);
     char buffer[MAX_MSG_LEN];
 
     while(1) {
+
+        // leggo messaggio dalla fifo
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
 
 
-            //delete
+            // DELETE
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
                 int sender = -1;
                 int sender_type = -1;
                 
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
+                    // se arriva da un genitore
                     int fd_parent = ipc_open_for_writing(sender,(DeviceType)sender_type);
                     if(fd_parent != -1){
                         char message[MAX_MSG_LEN];
@@ -49,6 +52,7 @@ void bulb_run(Bulb *bulb) {
                         close(fd_parent);
                     }
                 } else {
+                    //se arriva dal controller
                     char message[MAX_MSG_LEN];
                     snprintf(message, sizeof(message),"Device Bulb %d deleted.", bulb->id );
                     ipc_send_controller(STATUS_OK, message);
@@ -57,10 +61,10 @@ void bulb_run(Bulb *bulb) {
                 close(fd);
                 exit(0);
             }
-            //switch
+            // SWITCH
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
 
-                //delay
+                // delay
                 ipc_simulate_delay();
                 
                 char label[32], pos[32];
@@ -72,10 +76,12 @@ void bulb_run(Bulb *bulb) {
                     bool valid_pos = true;
                     if (strcmp(pos, "on") == 0) {
                         bulb->power = true;
+                        // inizia a contare il tempo
                         clock_gettime(CLOCK_MONOTONIC, &bulb->active_since);
                         bulb->tracking = true;
                     } else if (strcmp(pos, "off") == 0) {
                         if (bulb->tracking) {
+                            // Quando si spegne, calcola i secondi trascorsi e li somma al totale
                             long elapsed = compute_elapsed_seconds(&bulb->active_since);
                             bulb->time += elapsed;
                             bulb->tracking = false;
@@ -87,7 +93,7 @@ void bulb_run(Bulb *bulb) {
                     }
 
                     if(parsed >= 4){
-                        //il comando viene da un genitore quindi non sporco la shell
+                        //il comando viene da un genitore
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
                             char message[MAX_MSG_LEN];
@@ -121,11 +127,12 @@ void bulb_run(Bulb *bulb) {
                     }
                 }
             }
-            //Info
+            // INFO
             else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){
                 char message[MAX_MSG_LEN];
                 char parent[32];
 
+                // calcolo dinamico del tempo
                 long total_time = bulb->time;
                 if (bulb->tracking) {
                     total_time += compute_elapsed_seconds(&bulb->active_since);
@@ -144,11 +151,11 @@ void bulb_run(Bulb *bulb) {
                 
                 ipc_send_controller(STATUS_OK, message);
             } 
-            //set_parent
+            // SET_PARENT
             else if(strncmp(buffer , CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
                 handle_set_parent(&bulb->parent_id, buffer);
             }
-            //mirror
+            // MIRROR
             else if(strncmp(buffer , CMD_MIRROR, strlen(CMD_MIRROR)) == 0){
 
                 int sender_id = -1;
@@ -161,6 +168,7 @@ void bulb_run(Bulb *bulb) {
                     int fd_sender = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
 
                     if(fd_sender != -1 ){  
+                        // rispodno inviando lo stato attuale
                         char resp[MAX_MSG_LEN];
                         snprintf(resp,sizeof(resp), "%s %d %s ", CMD_MIRROR_RESP, bulb->id, bulb->power ? "On" : "Off");
                         ipc_send_message(fd_sender,resp);
@@ -174,7 +182,8 @@ void bulb_run(Bulb *bulb) {
             }
 
         } else {
-            usleep(50000); // il processo consuma meno risorse
+            // se la fifo è vuota sospendo il processo per 50ms per evitare di consumare il 100% di CPU
+            usleep(50000);
         }
     }
     close(fd);

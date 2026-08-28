@@ -1,7 +1,7 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
-//STATUS
+// STATUS
 #define STATUS_OK                  0
 #define ERR_DEVICE_NOT_FOUND       1
 #define ERR_INVALID_COMMAND        2
@@ -17,7 +17,7 @@
 #define ERR_RESOURCE_ERROR         12
 #define ERR_PERMISSION_ERROR       13
 
-//COMMAND
+// COMMAND IPC
 #define CMD_INFO            "INFO"
 #define CMD_SWITCH          "SWITCH"
 #define CMD_SET             "SET"
@@ -29,10 +29,16 @@
 #define CMD_MIRROR_RESP     "MIRROR_RESP"
 #define CMD_CHILD_DIED      "CHILD_DIED"
 
+// COSTANTI DI SISTEMA
 #define MAX_MSG_LEN 512
+
+// Formato standard per il path delle FIFO
 #define FIFO_PATH_FMT "/tmp/domotica_%s_%d.fifo"
+
+// Path fisso per la FIFO del Controller
 #define FIFO_CONTROLLER "/tmp/domotica_controller_0.fifo"
 
+// FORMATTAZIONE RISPOSTE
 #define RESP_FORMAT "%d %s"
 #define RESP_FORMAT_NO_PAYLOAD "%d" 
 
@@ -40,6 +46,7 @@
 #define KV_SEP '='
 //ES: 0 power=on;time=45
 
+// ID riservato al controller
 #define CONTROLLER_ID 0
 
 #endif

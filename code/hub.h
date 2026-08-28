@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include "device.h"
 
+//capacità massima dei figli
 #define MAX_CHILDREN 50
 
 // Struttura dell'Hub

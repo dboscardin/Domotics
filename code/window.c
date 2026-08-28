@@ -8,8 +8,6 @@
 #include "device.h"
 #include "protocol.h"
 
-#define BUFFER_SIZE 256
-
 Window create_window_struct(int id) {
     Window window = {
         .id = id,
@@ -23,21 +21,25 @@ Window create_window_struct(int id) {
 
 void window_run(Window *window) {
 
+    // Genera un valore casuale basato sul PID 
     srand(time(NULL) ^ getpid());
 
+    // apro la fifo in sola lettura
     int fd = ipc_open_for_listening(window->id, DEVICE_WINDOW);
     char buffer[MAX_MSG_LEN];
     while(1) {
 
+        //leggo i messaggi dalla FIFO
         int bytes = ipc_read_line(fd, buffer, sizeof(buffer));
         if (bytes > 0) {
 
-            //delete
+            // DELETE
             if (strncmp(buffer, CMD_DELETE, strlen(CMD_DELETE)) == 0){
                 int sender = -1;
                 int sender_type = -1;
                 
                 if(sscanf(buffer, "%*s %d %d", &sender,&sender_type) == 2){
+                    //se arriva da un genitore
                     int fd_parent = ipc_open_for_writing(sender,(DeviceType)sender_type);
                     if(fd_parent != -1){
                         char message[32];
@@ -46,6 +48,7 @@ void window_run(Window *window) {
                         close(fd_parent);
                     }
                 } else {
+                    //se arriva dal controller
                     char message[MAX_MSG_LEN];
                     snprintf(message ,sizeof(message),"Device Window %d deleted.", window->id );
                     ipc_send_controller(STATUS_OK, message);
@@ -54,10 +57,11 @@ void window_run(Window *window) {
                 close(fd);
                 exit(0);
             }
-            //switch
+            // SWITCH
             else if(strncmp(buffer, CMD_SWITCH, strlen(CMD_SWITCH)) == 0) {
                 //delay
                 ipc_simulate_delay();
+
                 bool handled = false;
                 bool valid_pos = true;
                 char label[32], pos[32];
@@ -82,6 +86,7 @@ void window_run(Window *window) {
                 else if(strcmp(label, "close") == 0) {
                     if (strcmp(pos, "on") == 0) {
                         if (window->tracking) {
+                            //la finestra viene chiusa 
                             long elapsed = compute_elapsed_seconds(&window->active_since);
                             window->time += elapsed;
                             window->tracking = false;
@@ -119,6 +124,7 @@ void window_run(Window *window) {
                 } else {
                     // Se la label non è valida
                     if (parsed >= 4) {
+                        //sblocco il genitore
                         int fd_parent = ipc_open_for_writing(sender_id, (DeviceType)sender_type);
                         if (fd_parent != -1) {
                             char message[MAX_MSG_LEN];
@@ -131,7 +137,7 @@ void window_run(Window *window) {
                     }
                 }
             }
-            //info
+            // INFO
             else if(strncmp(buffer , CMD_INFO, strlen(CMD_INFO)) == 0){
                 char message[MAX_MSG_LEN];
                 char parent[32];
@@ -153,11 +159,11 @@ void window_run(Window *window) {
                 window->id, window->is_open ? "Open" : "Closed", total_time, parent );
                 ipc_send_controller(STATUS_OK, message);
             }
-            //set_parent
+            // SET_PARENT
             else if(strncmp(buffer , CMD_SET_PARENT, strlen(CMD_SET_PARENT)) == 0){
                 handle_set_parent(&window->parent_id, buffer);
             }
-            //mirror
+            // MIRROR
             else if(strncmp(buffer , CMD_MIRROR, strlen(CMD_MIRROR)) == 0){
 
                 int sender_id = -1;
@@ -182,7 +188,8 @@ void window_run(Window *window) {
                 ipc_send_controller(ERR_INVALID_COMMAND, " Window unknown command.");
             }
         } else {
-            usleep(50000); // il processo consuma meno risorse
+            // se la fifo è vuota sospendo il processo per 50ms per evitare di consumare il 100% di CPU
+            usleep(50000);
         }
     }
     close(fd);
