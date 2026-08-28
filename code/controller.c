@@ -200,7 +200,7 @@ static int read_line(char *buffer, size_t size) {
 static void devices_list(void) {
     for (int i = 0; i < device_count; i++)
     {
-        printf("%d --> Id=%d, Pid=%d, Type=%s, ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
+        printf("%d --> Id: %d, Pid: %d, Type: %s, ", (i + 1), devices[i].id, devices[i].pid, device_type_to_string(devices[i].type));
         if(devices[i].parent_id == -1){
             printf("Root service\n");
         } else if(devices[i].parent_id == CONTROLLER_ID){
