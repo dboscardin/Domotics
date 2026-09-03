@@ -34,7 +34,7 @@ clean:
 	rm -f /tmp/domotica_* 2>/dev/null || true
 # Compiles first if needed, then runs the program
 run: build
-		echo "============================================="; \
+		@echo "============================================="; \
 		echo " Avvio domotics con scenario: $(ARGS)"; \
 		echo "============================================="; \
 		cat $(ARGS) - | ./$(TARGET); \
